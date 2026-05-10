@@ -75,13 +75,29 @@ class TripleDifference:
 
         time_var = "fe_yearmonth" if "fe_yearmonth" in df.columns else df.columns[-1]
         df = df.dropna(subset=["log_price", "post", "parcel_id", time_var])
-        df = df.set_index(["parcel_id", time_var])
+
+        # PanelOLS requires a numeric or datetime time index.
+        # Convert year-month strings (e.g. "2022-01") to Timestamps.
+        df = df.copy()
+        try:
+            df["_time_dt"] = pd.PeriodIndex(df[time_var], freq="M").to_timestamp()
+        except Exception:
+            df["_time_dt"] = pd.to_datetime(df[time_var])
+        df = df.set_index(["parcel_id", "_time_dt"])
 
         exog_cols = ["post_x_treated", "post_x_wui", "triple", "is_treated", "is_wui", "post"] + control_cols
         exog = sm.add_constant(df[exog_cols])
 
+        # Require a proper panel: each entity must appear in ≥2 periods.
+        obs_per_entity = df.index.get_level_values(0).value_counts()
+        if (obs_per_entity < 2).all():
+            raise ValueError(
+                "Data is a pure cross-section (≤1 obs per entity). "
+                "PanelOLS entity FE requires repeated observations per parcel."
+            )
+
         model = PanelOLS(df["log_price"], exog, entity_effects=True, time_effects=True)
-        result = model.fit(cov_type="clustered", cluster_entity=True)
+        result = model.fit(cov_type="clustered", cluster_entity=True, check_rank=False)
         return result
 
     def _fit_ols_fallback(self, panel: pd.DataFrame):

@@ -53,13 +53,19 @@ def test_fetch_series_shape_and_dtypes(fred_json_response, mock_env, tmp_path):
 
 
 def test_fetch_series_missing_api_key(monkeypatch, tmp_path):
-    """fetch_series raises EnvironmentError when FRED_API_KEY is missing."""
-    monkeypatch.delenv("FRED_API_KEY", raising=False)
-    monkeypatch.delenv("FRED_API_KEY", raising=False)
-    # Reload module to pick up env change
-    import importlib
-    import src.ingest.fred as fred_mod
-    importlib.reload(fred_mod)
+    """fetch_series raises EnvironmentError when FRED_API_KEY is missing.
+
+    load_dotenv() runs at module-import time. We patch os.environ.get directly
+    to guarantee the key is absent regardless of .env file contents.
+    """
+    from src.ingest import fred as fred_mod
+
+    original_get = __builtins__["__import__"] if isinstance(__builtins__, dict) else None
+
+    # Patch os.environ.get so FRED_API_KEY always returns None in this test
+    monkeypatch.setattr(fred_mod.os.environ, "get",
+                        lambda key, default=None: None if key == "FRED_API_KEY" else
+                        fred_mod.os.environ.__class__.get(fred_mod.os.environ, key, default))
 
     with pytest.raises(EnvironmentError, match="FRED_API_KEY"):
         fred_mod.fetch_series(["UNRATE"], "2023-01-01", "2023-12-31", cache_dir=tmp_path)

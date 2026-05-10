@@ -16,6 +16,7 @@ dependencies = [
     "statsmodels>=0.14.0",
     "linearmodels>=6.0",
     "csdid>=0.1.0",
+    "drdid>=0.1.0",
     "pysal>=23.7",
     "libpysal>=4.9.0",
     "spreg>=1.4.0",
