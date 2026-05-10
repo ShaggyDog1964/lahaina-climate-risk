@@ -1,0 +1,19 @@
+services:
+  postgis:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_USER: lahaina
+      POSTGRES_PASSWORD: lahaina
+      POSTGRES_DB: climate_risk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lahaina -d climate_risk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgis_data:
