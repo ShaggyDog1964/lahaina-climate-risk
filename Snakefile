@@ -260,3 +260,254 @@ with open('{output.json}', 'w') as f: json.dump(result, f, indent=2)
 plot_event_study(es, '{output.pdf}')
 "
         """
+
+# ---------------------------------------------------------------------------
+# Phase 2 terminal rule
+# ---------------------------------------------------------------------------
+rule phase2:
+    input:
+        "data/raw/zillow/zhvi_zip.csv",
+        "data/raw/census/acs_zip_2022.parquet",
+        "data/interim/zip_panel.parquet",
+        "data/interim/donor_pool.parquet",
+        "data/interim/covariate_matrix.npz",
+        "results/scm/adh_results.pkl",
+        "results/scm/adh_gap_series.parquet",
+        "results/scm/gsynth_results.pkl",
+        "results/scm/gsynth_gap_series.parquet",
+        "results/scm/augsynth_results.pkl",
+        "results/scm/augsynth_gap_series.parquet",
+        "results/scm/model_comparison.csv",
+        "results/inference/placebo_distribution.parquet",
+        "results/inference/p_values.json",
+        "results/inference/loo_gaps.parquet",
+        "results/inference/stability_score.json",
+
+# ---------------------------------------------------------------------------
+# Phase 2 ingest rules
+# ---------------------------------------------------------------------------
+rule fetch_zhvi:
+    output:
+        "data/raw/zillow/zhvi_zip.csv",
+    shell:
+        """
+        python -c "
+from src.ingest.zillow_zip import fetch_zhvi_by_zip
+df = fetch_zhvi_by_zip('HI')
+df.to_csv('{output}', index=False)
+"
+        """
+
+rule fetch_acs:
+    output:
+        "data/raw/census/acs_zip_2022.parquet",
+    shell:
+        """
+        python -c "
+from src.ingest.census_acs import fetch_acs_zip
+df = fetch_acs_zip(year=2022)
+df.to_parquet('{output}', engine='pyarrow')
+"
+        """
+
+rule build_zip_panel:
+    input:
+        zhvi="data/raw/zillow/zhvi_zip.csv",
+        acs="data/raw/census/acs_zip_2022.parquet",
+    output:
+        "data/interim/zip_panel.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd
+from src.ingest.zip_panel_builder import build_zip_panel
+zhvi = pd.read_csv('{input.zhvi}')
+acs = pd.read_parquet('{input.acs}')
+hta = None
+panel = build_zip_panel(zhvi, acs, hta)
+panel.to_parquet('{output}', engine='pyarrow')
+"
+        """
+
+# ---------------------------------------------------------------------------
+# Phase 2 SCM rules
+# ---------------------------------------------------------------------------
+rule build_donor_pool:
+    input:
+        zip_panel="data/interim/zip_panel.parquet",
+        acs="data/raw/census/acs_zip_2022.parquet",
+    output:
+        pool="data/interim/donor_pool.parquet",
+        cov="data/interim/covariate_matrix.npz",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np
+from src.scm.donor_pool import DonorPool
+from src.scm.covariate_matrix import build_covariate_matrix, build_outcome_matrices
+panel = pd.read_parquet('{input.zip_panel}')
+acs = pd.read_parquet('{input.acs}')
+dp = DonorPool(panel)
+dp.build()
+dp.donor_panel.to_parquet('{output.pool}', engine='pyarrow')
+X0, X1, cov_names = build_covariate_matrix(dp, acs)
+Y0_pre, Y1_pre, times = build_outcome_matrices(dp)
+np.savez('{output.cov}', X0=X0, X1=X1, Y0_pre=Y0_pre, Y1_pre=Y1_pre, covariate_names=cov_names, time_periods=times)
+"
+        """
+
+rule fit_adh_scm:
+    input:
+        pool="data/interim/donor_pool.parquet",
+        cov="data/interim/covariate_matrix.npz",
+    output:
+        pkl="results/scm/adh_results.pkl",
+        gap="results/scm/adh_gap_series.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle
+from src.scm.adh_scm import ADHSyntheticControl
+from src.scm.donor_pool import DonorPool
+data = np.load('{input.cov}', allow_pickle=True)
+X0, X1, Y0_pre, Y1_pre = data['X0'], data['X1'], data['Y0_pre'], data['Y1_pre']
+pool = pd.read_parquet('{input.pool}')
+dp = DonorPool.__new__(DonorPool)
+dp._donor_panel = pool
+dp.treated_zip = '96761'
+dp.pre_end = '2023-07'
+model = ADHSyntheticControl()
+model.fit(X0, X1, Y0_pre, Y1_pre)
+with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
+gap = pd.DataFrame({'gap': model.treatment_effect(Y1_pre, Y0_pre)})
+gap.to_parquet('{output.gap}', engine='pyarrow')
+"
+        """
+
+rule fit_gsynth:
+    input:
+        pool="data/interim/donor_pool.parquet",
+        cov="data/interim/covariate_matrix.npz",
+    output:
+        pkl="results/scm/gsynth_results.pkl",
+        gap="results/scm/gsynth_gap_series.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle
+from src.scm.gsynth import GeneralizedSyntheticControl
+data = np.load('{input.cov}', allow_pickle=True)
+Y0_pre, Y1_pre = data['Y0_pre'], data['Y1_pre']
+model = GeneralizedSyntheticControl()
+model.fit(Y0_pre, Y1_pre, Y0_pre, Y1_pre, r=2)
+with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
+gap = pd.DataFrame({'gap': model.treatment_effect(Y1_pre)})
+gap.to_parquet('{output.gap}', engine='pyarrow')
+"
+        """
+
+rule fit_augsynth:
+    input:
+        adh="results/scm/adh_results.pkl",
+        cov="data/interim/covariate_matrix.npz",
+    output:
+        pkl="results/scm/augsynth_results.pkl",
+        gap="results/scm/augsynth_gap_series.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle
+from src.scm.augsynth import AugmentedSyntheticControl
+data = np.load('{input.cov}', allow_pickle=True)
+Y0_pre, Y1_pre = data['Y0_pre'], data['Y1_pre']
+with open('{input.adh}', 'rb') as f: adh = pickle.load(f)
+model = AugmentedSyntheticControl()
+model.fit(adh.w_, Y0_pre, Y1_pre, Y0_pre, Y1_pre)
+with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
+gap = pd.DataFrame({'gap': model.treatment_effect()})
+gap.to_parquet('{output.gap}', engine='pyarrow')
+"
+        """
+
+rule compare_scms:
+    input:
+        adh="results/scm/adh_results.pkl",
+        gsynth="results/scm/gsynth_results.pkl",
+        augsynth="results/scm/augsynth_results.pkl",
+    output:
+        "results/scm/model_comparison.csv",
+    shell:
+        """
+        python -c "
+import pickle
+from src.scm.model_registry import ModelRegistry
+reg = ModelRegistry()
+with open('{input.adh}', 'rb') as f: adh = pickle.load(f)
+with open('{input.gsynth}', 'rb') as f: gsynth = pickle.load(f)
+with open('{input.augsynth}', 'rb') as f: augsynth = pickle.load(f)
+reg.register('ADH', adh, {{}})
+reg.register('GSynth', gsynth, {{}})
+reg.register('ASCM', augsynth, {{}})
+reg.compare_rmspe().to_csv('{output}', index=False)
+"
+        """
+
+# ---------------------------------------------------------------------------
+# Phase 2 inference rules
+# ---------------------------------------------------------------------------
+rule run_placebos:
+    input:
+        adh="results/scm/adh_results.pkl",
+        pool="data/interim/donor_pool.parquet",
+        cov="data/interim/covariate_matrix.npz",
+    output:
+        dist="results/inference/placebo_distribution.parquet",
+        pvals="results/inference/p_values.json",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle, json
+from src.scm.donor_pool import DonorPool
+from src.scm.adh_scm import ADHSyntheticControl
+from src.inference.placebo import InSpacePlacebo
+from src.scm.covariate_matrix import build_covariate_matrix, build_outcome_matrices
+pool = pd.read_parquet('{input.pool}')
+data = np.load('{input.cov}', allow_pickle=True)
+with open('{input.adh}', 'rb') as f: adh = pickle.load(f)
+dp = DonorPool.__new__(DonorPool)
+dp._donor_panel = pool
+dp.treated_zip = '96761'
+dp.pre_end = '2023-07'
+placebo = InSpacePlacebo(ADHSyntheticControl, dp, build_covariate_matrix)
+result_df = placebo.run(n_jobs=1)
+result_df.to_parquet('{output.dist}', engine='pyarrow')
+p = placebo.p_value(adh.rmspe_ratio())
+with open('{output.pvals}', 'w') as f: json.dump({{'p_value': p, 'rmspe_ratio': adh.rmspe_ratio()}}, f, indent=2)
+"
+        """
+
+rule run_loo:
+    input:
+        adh="results/scm/adh_results.pkl",
+        cov="data/interim/covariate_matrix.npz",
+        pool="data/interim/donor_pool.parquet",
+    output:
+        gaps="results/inference/loo_gaps.parquet",
+        score="results/inference/stability_score.json",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle, json
+from src.inference.loo import LeaveOneOutDiagnostic
+from src.scm.donor_pool import DonorPool
+data = np.load('{input.cov}', allow_pickle=True)
+X0, X1, Y0_pre, Y1_pre = data['X0'], data['X1'], data['Y0_pre'], data['Y1_pre']
+with open('{input.adh}', 'rb') as f: adh = pickle.load(f)
+pool = pd.read_parquet('{input.pool}')
+donors = [z for z in pool['zip_code'].unique() if z != '96761']
+loo = LeaveOneOutDiagnostic()
+result = loo.run(adh, X0, X1, Y0_pre, Y1_pre, Y0_pre, Y1_pre, donors)
+pd.DataFrame(result['loo_gaps']).to_parquet('{output.gaps}', engine='pyarrow')
+with open('{output.score}', 'w') as f: json.dump({{'stability_score': loo.stability_score()}}, f, indent=2)
+"
+        """
