@@ -511,3 +511,301 @@ pd.DataFrame(result['loo_gaps']).to_parquet('{output.gaps}', engine='pyarrow')
 with open('{output.score}', 'w') as f: json.dump({{'stability_score': loo.stability_score()}}, f, indent=2)
 "
         """
+
+# ---------------------------------------------------------------------------
+# Phase 3 terminal rule
+# ---------------------------------------------------------------------------
+rule phase3:
+    input:
+        "data/interim/spatial/price_change.parquet",
+        "data/interim/spatial/weights_knn.pkl",
+        "data/interim/spatial/weights_idw.pkl",
+        "data/interim/spatial/eigenvalues_knn.npy",
+        "results/esda/global_morans.json",
+        "results/esda/lisa_stats.parquet",
+        "results/esda/cluster_labels.parquet",
+        "results/spatial/sar_results.pkl",
+        "results/spatial/sem_results.pkl",
+        "results/spatial/sdm_results.pkl",
+        "results/spatial/lesage_pace_effects.parquet",
+        "results/spatial/nesting_tests.json",
+        "results/gwr/optimal_bandwidth.json",
+        "results/gwr/gwr_surface.parquet",
+
+# ---------------------------------------------------------------------------
+# Phase 3 spatial outcome
+# ---------------------------------------------------------------------------
+rule build_spatial_outcome:
+    input:
+        panel="data/final/panel.parquet",
+    output:
+        "data/interim/spatial/price_change.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd
+from src.spatial_models.outcome import build_price_change
+panel = pd.read_parquet('{input.panel}')
+gdf = build_price_change(panel)
+gdf.drop(columns='geometry').to_parquet('{output}', engine='pyarrow')
+"
+        """
+
+# ---------------------------------------------------------------------------
+# Phase 3 weights
+# ---------------------------------------------------------------------------
+rule build_weights_phase3:
+    input:
+        "data/interim/spatial/price_change.parquet",
+    output:
+        knn="data/interim/spatial/weights_knn.pkl",
+        idw="data/interim/spatial/weights_idw.pkl",
+        eigs="data/interim/spatial/eigenvalues_knn.npy",
+    shell:
+        """
+        python -c "
+import pandas as pd, geopandas as gpd, pickle, numpy as np
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+df = pd.read_parquet('{input}')
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs='EPSG:4326')
+factory = SpatialWeightsFactory()
+weights = factory.build_all(gdf)
+with open('{output.knn}', 'wb') as f: pickle.dump(weights['knn'], f)
+with open('{output.idw}', 'wb') as f: pickle.dump(weights['idw'], f)
+W_sparse = factory.to_sparse(weights['knn'])
+eigs = factory.eigenvalues(W_sparse)
+np.save('{output.eigs}', eigs)
+"
+        """
+
+# ---------------------------------------------------------------------------
+# Phase 3 ESDA
+# ---------------------------------------------------------------------------
+rule global_morans:
+    input:
+        price="data/interim/spatial/price_change.parquet",
+        weights="data/interim/spatial/weights_knn.pkl",
+    output:
+        "results/esda/global_morans.json",
+    shell:
+        """
+        python -c "
+import pandas as pd, geopandas as gpd, pickle, json, numpy as np
+from src.esda.morans import GlobalMoransI
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+df = pd.read_parquet('{input.price}')
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs='EPSG:4326')
+with open('{input.weights}', 'rb') as f: w = pickle.load(f)
+factory = SpatialWeightsFactory()
+W_sparse = factory.to_sparse(w)
+y = df['y_raw'].fillna(0).values
+model = GlobalMoransI().fit(y, W_sparse)
+with open('{output}', 'w') as f: json.dump(model.summary(), f, indent=2)
+"
+        """
+
+rule local_morans:
+    input:
+        price="data/interim/spatial/price_change.parquet",
+        weights="data/interim/spatial/weights_knn.pkl",
+    output:
+        stats="results/esda/lisa_stats.parquet",
+        labels="results/esda/cluster_labels.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd, geopandas as gpd, pickle, numpy as np
+from src.esda.lisa import LocalMoransI
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+df = pd.read_parquet('{input.price}')
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs='EPSG:4326')
+with open('{input.weights}', 'rb') as f: w = pickle.load(f)
+factory = SpatialWeightsFactory()
+W_sparse = factory.to_sparse(w)
+y = df['y_raw'].fillna(0).values
+model = LocalMoransI().fit(y, W_sparse)
+result_gdf = model.to_geodataframe(gdf)
+result_gdf.drop(columns='geometry').to_parquet('{output.stats}', engine='pyarrow')
+pd.DataFrame({{'parcel_id': df['parcel_id'] if 'parcel_id' in df.columns else range(len(df)), 'cluster_label': model.cluster_labels_}}).to_parquet('{output.labels}', engine='pyarrow')
+"
+        """
+
+# ---------------------------------------------------------------------------
+# Phase 3 spatial models
+# ---------------------------------------------------------------------------
+rule fit_sar:
+    input:
+        price="data/interim/spatial/price_change.parquet",
+        weights="data/interim/spatial/weights_knn.pkl",
+        eigs="data/interim/spatial/eigenvalues_knn.npy",
+    output:
+        "results/spatial/sar_results.pkl",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle
+from src.spatial_models.sar import SpatialLagModel
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+df = pd.read_parquet('{input.price}')
+with open('{input.weights}', 'rb') as f: w = pickle.load(f)
+factory = SpatialWeightsFactory()
+W_sparse = factory.to_sparse(w)
+eigs = np.load('{input.eigs}', allow_pickle=True)
+y = df['y_raw'].fillna(0).values
+X_cols = [c for c in ['dist_to_fire_km'] if c in df.columns]
+X = np.column_stack([np.ones(len(df))] + [df[c].fillna(0).values for c in X_cols])
+model = SpatialLagModel().fit(y, X, W_sparse, eigs)
+with open('{output}', 'wb') as f: pickle.dump(model, f)
+"
+        """
+
+rule fit_sem:
+    input:
+        price="data/interim/spatial/price_change.parquet",
+        weights="data/interim/spatial/weights_knn.pkl",
+        eigs="data/interim/spatial/eigenvalues_knn.npy",
+    output:
+        "results/spatial/sem_results.pkl",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle
+from src.spatial_models.sem import SpatialErrorModel
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+df = pd.read_parquet('{input.price}')
+with open('{input.weights}', 'rb') as f: w = pickle.load(f)
+factory = SpatialWeightsFactory()
+W_sparse = factory.to_sparse(w)
+eigs = np.load('{input.eigs}', allow_pickle=True)
+y = df['y_raw'].fillna(0).values
+X_cols = [c for c in ['dist_to_fire_km'] if c in df.columns]
+X = np.column_stack([np.ones(len(df))] + [df[c].fillna(0).values for c in X_cols])
+model = SpatialErrorModel().fit(y, X, W_sparse, eigs)
+with open('{output}', 'wb') as f: pickle.dump(model, f)
+"
+        """
+
+rule fit_sdm:
+    input:
+        price="data/interim/spatial/price_change.parquet",
+        weights="data/interim/spatial/weights_knn.pkl",
+        eigs="data/interim/spatial/eigenvalues_knn.npy",
+        sar="results/spatial/sar_results.pkl",
+    output:
+        "results/spatial/sdm_results.pkl",
+    shell:
+        """
+        python -c "
+import pandas as pd, numpy as np, pickle
+from src.spatial_models.sdm import SpatialDurbinModel
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+df = pd.read_parquet('{input.price}')
+with open('{input.weights}', 'rb') as f: w = pickle.load(f)
+factory = SpatialWeightsFactory()
+W_sparse = factory.to_sparse(w)
+eigs = np.load('{input.eigs}', allow_pickle=True)
+y = df['y_raw'].fillna(0).values
+X_cols = [c for c in ['dist_to_fire_km'] if c in df.columns]
+X = np.column_stack([np.ones(len(df))] + [df[c].fillna(0).values for c in X_cols])
+X_names = ['intercept'] + X_cols
+model = SpatialDurbinModel().fit(y, X, W_sparse, eigs, X_names=X_names)
+with open('{output}', 'wb') as f: pickle.dump(model, f)
+"
+        """
+
+rule lesage_pace:
+    input:
+        sdm="results/spatial/sdm_results.pkl",
+        weights="data/interim/spatial/weights_knn.pkl",
+    output:
+        "results/spatial/lesage_pace_effects.parquet",
+    shell:
+        """
+        python -c "
+import pickle
+from src.spatial_models.effects import LeSagePaceEffects
+from src.spatial.weights_phase3 import SpatialWeightsFactory
+with open('{input.sdm}', 'rb') as f: sdm = pickle.load(f)
+with open('{input.weights}', 'rb') as f: w = pickle.load(f)
+factory = SpatialWeightsFactory()
+W_sparse = factory.to_sparse(w)
+effects = LeSagePaceEffects().compute(sdm, W_sparse)
+effects.summary_table().to_parquet('{output}', engine='pyarrow')
+"
+        """
+
+rule nesting_tests:
+    input:
+        sar="results/spatial/sar_results.pkl",
+        sem="results/spatial/sem_results.pkl",
+        sdm="results/spatial/sdm_results.pkl",
+    output:
+        "results/spatial/nesting_tests.json",
+    shell:
+        """
+        python -c "
+import pickle, json
+from src.spatial_models.model_registry import SpatialModelRegistry
+with open('{input.sar}', 'rb') as f: sar = pickle.load(f)
+with open('{input.sem}', 'rb') as f: sem = pickle.load(f)
+with open('{input.sdm}', 'rb') as f: sdm = pickle.load(f)
+reg = SpatialModelRegistry()
+reg.register('SAR', sar)
+reg.register('SEM', sem)
+reg.register('SDM', sdm)
+results = {{
+    'comparison': reg.compare().to_dict(),
+    'lrt_sdm_vs_sar': reg.lrt('SDM', 'SAR'),
+}}
+with open('{output}', 'w') as f: json.dump(results, f, indent=2)
+"
+        """
+
+# ---------------------------------------------------------------------------
+# Phase 3 GWR
+# ---------------------------------------------------------------------------
+rule gwr_bandwidth:
+    input:
+        "data/interim/spatial/price_change.parquet",
+    output:
+        bw="results/gwr/optimal_bandwidth.json",
+        checkpoint="data/interim/spatial/bw_checkpoint.pkl",
+    shell:
+        """
+        python -c "
+import pandas as pd, geopandas as gpd, json, numpy as np
+from src.gwr.bandwidth import BandwidthSelector
+df = pd.read_parquet('{input}')
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs='EPSG:4326')
+y = df['y_raw'].fillna(0).values
+X_cols = [c for c in ['dist_to_fire_km'] if c in df.columns]
+X = np.column_stack([np.ones(len(df))] + [df[c].fillna(0).values for c in X_cols])
+sel = BandwidthSelector(gdf, y, X, checkpoint_path='{output.checkpoint}')
+bw = sel.fit(lower_km=1.0, upper_km=50.0)
+with open('{output.bw}', 'w') as f: json.dump({{'bandwidth_km': bw}}, f, indent=2)
+"
+        """
+
+rule fit_gwr:
+    input:
+        price="data/interim/spatial/price_change.parquet",
+        bw="results/gwr/optimal_bandwidth.json",
+    output:
+        "results/gwr/gwr_surface.parquet",
+    shell:
+        """
+        python -c "
+import pandas as pd, geopandas as gpd, json, numpy as np
+from src.gwr.gwr_model import GeographicallyWeightedRegression
+df = pd.read_parquet('{input.price}')
+gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs='EPSG:4326')
+with open('{input.bw}') as f: bw_info = json.load(f)
+y = df['y_raw'].fillna(0).values
+X_cols = [c for c in ['dist_to_fire_km'] if c in df.columns]
+X = np.column_stack([np.ones(len(df))] + [df[c].fillna(0).values for c in X_cols])
+X_names = ['intercept'] + X_cols
+model = GeographicallyWeightedRegression().fit(gdf, y, X, bw_info['bandwidth_km'])
+result_gdf = model.to_geodataframe(gdf, X_names)
+result_gdf.drop(columns='geometry').to_parquet('{output}', engine='pyarrow')
+"
+        """
