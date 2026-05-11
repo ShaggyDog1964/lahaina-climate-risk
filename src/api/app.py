@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.schemas import (
@@ -20,11 +20,15 @@ from src.api.schemas import (
 
 logger = logging.getLogger(__name__)
 
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+
+_VALID_CLUSTER_LABELS: frozenset[str | None] = frozenset({"HH", "LL", "HL", "LH", "NS", None})
+
 app = FastAPI(title="Lahaina Spatial Results API", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -62,11 +66,24 @@ def get_lisa_clusters(
     cluster_label: str | None = Query(default=None),
     limit: int = Query(default=100, le=5000),
 ) -> list[LISAResult]:
+    if cluster_label not in _VALID_CLUSTER_LABELS:
+        raise HTTPException(status_code=422, detail="Invalid cluster_label")
+
     db = _get_db()
     if db:
         try:
-            where = f"WHERE cluster_label = '{cluster_label}'" if cluster_label else ""
-            df = db.query(f"SELECT parcel_id, lat, lon, I_local, p_value, cluster_label FROM lisa_results {where} LIMIT {limit}")
+            if cluster_label:
+                df = db.query(
+                    "SELECT parcel_id, lat, lon, I_local, p_value, cluster_label"
+                    " FROM lisa_results WHERE cluster_label = %(label)s LIMIT %(lim)s",
+                    parameters={"label": cluster_label, "lim": limit},
+                )
+            else:
+                df = db.query(
+                    "SELECT parcel_id, lat, lon, I_local, p_value, cluster_label"
+                    " FROM lisa_results LIMIT %(lim)s",
+                    parameters={"lim": limit},
+                )
             return [LISAResult(**r) for r in df.to_dict(orient="records")]
         except Exception as exc:
             logger.warning("ClickHouse query failed: %s", exc)

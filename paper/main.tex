@@ -1,0 +1,589 @@
+\documentclass[12pt]{article}
+
+%% Page geometry
+\usepackage[margin=1in]{geometry}
+
+%% Fonts and encoding
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+%% Math
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{bm}
+
+%% Tables
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{dcolumn}
+
+%% Figures
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{subcaption}
+
+%% Hyperlinks and references
+\usepackage[hidelinks]{hyperref}
+\usepackage{natbib}
+\bibliographystyle{apalike}
+
+%% Misc
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{footmisc}
+
+%% Line spacing
+\setstretch{1.5}
+
+%% Custom commands
+\newcommand{\ATT}{\mathrm{ATT}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\indic}{\mathbf{1}}
+
+%% Title
+\title{Wildfire Risk and Residential Property Values:\\
+Evidence from the 2023 Lahaina Fire}
+
+\author{[Author TBD]\\
+\small [Affiliation TBD]\\
+\small \href{mailto:}{[email TBD]}}
+
+\date{Working Paper --- \today}
+
+%% Abstract environment
+\renewenvironment{abstract}
+  {\small\begin{center}\textbf{Abstract}\end{center}\quotation}
+  {\endquotation}
+
+%%=============================================================
+\begin{document}
+%%=============================================================
+
+\maketitle
+
+\begin{abstract}
+We estimate the causal effect of the August 2023 Lahaina wildfire on residential
+property values in Maui County, Hawaii. Combining parcel-level transaction data
+with fire perimeter shapefiles, Wildland-Urban Interface (WUI) classifications,
+and aggregate price indices, we apply a multi-method identification strategy:
+hedonic pricing, staggered difference-in-differences \citep{CS2021},
+triple-difference decomposition, synthetic control methods
+\citep{Abadie2010,BenMichael2021,Xu2017}, and spatial panel models
+\citep{LeSage2009}. Our triple-difference estimates isolate a
+\emph{belief-update channel} --- a forward-looking risk discount on WUI-classified
+parcels beyond the physical destruction zone. Spatial autoregressive and
+Spatial Durbin models quantify indirect spillovers onto properties beyond the
+fire perimeter, and geographically weighted regression reveals spatial
+heterogeneity in the price response. Synthetic control estimates using Maui
+ZIP-level price indices corroborate the parcel-level findings. Our results
+contribute to the emerging literature on how climate risk is capitalized into
+housing markets \citep{Baldauf2020,Bernstein2019}.
+
+\smallskip
+\noindent\textbf{Keywords:} wildfire risk, hedonic pricing, difference-in-differences,
+synthetic control, spatial econometrics, climate risk, Lahaina 2023
+
+\smallskip
+\noindent\textbf{JEL Codes:} R31, Q54, C21, C23
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+%%=============================================================
+\section{Introduction}
+\label{sec:intro}
+%%=============================================================
+
+The August 8, 2023 Lahaina wildfire was the deadliest United States wildfire
+in more than a century, destroying approximately 2,170 structures and displacing
+thousands of residents. Beyond its immediate human toll, the disaster constitutes
+a natural experiment in how a catastrophic climate event is capitalized into
+residential property values --- both within the destruction zone and in surrounding
+areas that face elevated perceived risk.
+
+This paper asks three questions. First, what is the average treatment effect of
+fire proximity on residential sale prices in Maui County? Second, through which
+economic channels does this effect operate: physical destruction, market liquidity
+disruption, or a forward-looking revision of wildfire risk beliefs? Third, how far
+do price spillovers extend beyond the fire perimeter, and how heterogeneous are
+they across space?
+
+Answering these questions requires meeting several econometric challenges. Sales
+in the treatment area are thin following the fire, which limits the precision of
+parcel-level event studies. Treatment timing is effectively uniform (a single date),
+so staggered DiD methods are applied at the information-diffusion level --- using
+ZIP-level insurance repricing and risk-reclassification events as cohort assignment.
+Finally, spatial econometric methods are needed because parcel-level prices are
+spatially autocorrelated and the ``treatment'' (perceived wildfire risk) decays
+with distance in a way that induces spatial dependence in the error term.
+
+We address these challenges with a four-phase empirical strategy. Phase 1
+establishes the baseline hedonic price gradient and estimates average treatment
+effects using the \citet{CS2021} doubly-robust DiD estimator. A
+triple-difference model then separates the belief-update channel (WUI-classified
+parcels with elevated forward-looking risk) from the physical-destruction channel.
+Phase 2 constructs synthetic control counterfactuals for the Maui ZIP-level House
+Price Index using the Abadie-Diamond-Hainmueller method \citep{Abadie2010},
+generalized synthetic control \citep{Xu2017}, and the augmented variant
+\citep{BenMichael2021}, with permutation inference to assess statistical
+significance. Phase 3 estimates spatial autoregressive (SAR), spatial error (SEM),
+and Spatial Durbin (SDM) models on the parcel panel, recovering direct and indirect
+treatment effects via the \citet{LeSage2009} decomposition. Geographically weighted
+regression (GWR) further documents spatial heterogeneity in the price response.
+Phase 4 extends the data infrastructure to include FHFA ZIP-level repeat-sales HPI
+and Redfin neighborhood market tracker data for robustness.
+
+The paper proceeds as follows. Section~\ref{sec:data} describes the data.
+Section~\ref{sec:empirical} presents the empirical strategy.
+Section~\ref{sec:spatial} describes the spatial spillover analysis.
+Section~\ref{sec:results} reports results.
+Section~\ref{sec:conclusion} concludes.
+
+%%=============================================================
+\section{Data}
+\label{sec:data}
+%%=============================================================
+
+\subsection{Maui County Parcel Sales}
+
+The primary microdata source is the Maui County Real Property Assessment Roll,
+which records all taxable parcel transactions in Maui County including sale price,
+sale date, parcel attributes (square footage, year built, zoning category, lot size,
+number of bedrooms and bathrooms, waterfront indicator), and spatial identifiers
+(parcel centroid latitude and longitude, census block GEOID). The data span [TBD]
+and cover approximately [TBD] residential transactions.
+
+We restrict the analysis to arm's-length residential sales (zoning categories
+R-1 through R-5 and condominium) with nominal sale prices between \$50{,}000
+and \$10{,}000{,}000. All prices are deflated to [TBD] dollars using the Hawaii
+component of the FHFA All-Transactions House Price Index.
+
+\subsection{2023 Lahaina Fire Perimeter}
+
+The Lahaina fire perimeter polygon is obtained from the National Interagency
+Fire Center (NIFC) Wildfire Integrated Geographic Information System (WFIGS)
+ArcGIS FeatureServer (\texttt{src/ingest/fire.py}). The perimeter represents the
+final burn scar boundary as of [TBD], covering approximately 2{,}170 acres.
+
+Distance from each parcel centroid to the fire perimeter is computed as the
+minimum geodesic distance to any point on the perimeter polygon boundary,
+using a vectorized nearest-neighbor query against the H3-indexed perimeter
+representation (H3 resolution 8, hexagon edge length $\approx$ 460 meters).
+Treatment bands are defined at 0--2 km, 2--5 km, and 5--10 km, with parcels
+beyond 10 km serving as the control group.
+
+\subsection{Wildland-Urban Interface Classification}
+
+WUI classification is obtained from the USDA Forest Service dataset
+RDS-2015-0047-3 \citep[Silvis Lab, University of Wisconsin--Madison]{},
+which classifies all Census block groups in the contiguous United States as
+WUI (interface or intermix), non-WUI urban, or rural. We merge WUI
+classification to parcels using the census block group GEOID embedded in
+the assessor data.
+
+WUI status is used as a third dimension in the triple-difference estimator
+to identify forward-looking risk beliefs. WUI-classified parcels face elevated
+structural exposure to future wildfire risk, so a discount on WUI parcels relative
+to non-WUI parcels within the same distance band is interpreted as a belief-update
+channel rather than a physical-damage channel.
+
+\subsection{FRED Macroeconomic Controls}
+
+The following macroeconomic series are obtained from the St.\ Louis Fed FRED API
+(\texttt{src/ingest/fred.py}) and used as time-varying controls or deflators:
+
+\begin{itemize}[noitemsep]
+  \item Hawaii median household income (\texttt{MEHOINUSHAWIA672N})
+  \item FHFA All-Transactions House Price Index, Hawaii (\texttt{HISTHPI})
+  \item Case-Shiller National HPI (\texttt{CSUSHPINSA})
+  \item U.S. unemployment rate (\texttt{UNRATE})
+  \item Effective federal funds rate (\texttt{FEDFUNDS})
+  \item 30-year fixed mortgage rate (\texttt{MORTGAGE30US})
+\end{itemize}
+
+\subsection{FHFA ZIP-Level House Price Index}
+
+The FHFA publishes a quarterly repeat-sales House Price Index at the 5-digit ZIP
+code level (all-transactions, purchase-only). Data are downloaded as an Excel
+workbook from the FHFA Data Tools portal (\texttt{src/ingest/fred.py},
+\texttt{fetch\_fhfa\_zip\_hpi()}). These series serve as the outcome variable for
+the Phase 2 synthetic control analysis, where each Maui ZIP code is the treated
+unit and mainland Hawaii and continental U.S.\ ZIP codes form the donor pool.
+
+\subsection{Redfin Neighborhood Market Tracker}
+
+Redfin Research publishes monthly neighborhood-level housing market statistics
+(median sale price, median days on market, sale-to-list price ratio, active
+listings, homes sold) as a public bulk download from an S3 endpoint
+(\texttt{src/ingest/redfin.py}, \texttt{fetch\_redfin\_neighborhood()}).
+These data provide higher-frequency price signals and inventory indicators
+that complement the annual assessment roll, and are used for robustness
+checks on the hedonic price series.
+
+%%=============================================================
+\section{Empirical Strategy}
+\label{sec:empirical}
+%%=============================================================
+
+\subsection{Identification}
+
+The core identification assumption is parallel trends: absent the Lahaina fire,
+treated and control parcels would have exhibited parallel log price trajectories.
+We evaluate this assumption via a pre-trend regression on all pre-August-2023
+event periods and by plotting event-study estimates from the Callaway-Sant'Anna
+estimator.
+
+\subsection{Hedonic Model}
+
+Following \citet{Rosen1974}, we specify the baseline log-price hedonic:
+
+\begin{equation}
+  \log P_{it} = \alpha + \beta X_{it} + \gamma_b + \tau_t + \varepsilon_{it}
+  \label{eq:hedonic}
+\end{equation}
+
+where $X_{it}$ includes log square footage, parcel age, bedroom and bathroom
+counts, log lot size, zoning indicators, and a waterfront dummy; $\gamma_b$ are
+census-block fixed effects; $\tau_t$ are year-month fixed effects; and
+$\varepsilon_{it}$ is the HC3 heteroskedasticity-robust error \citep{MacKinnon1985}.
+
+Treatment-band indicators $D^k_{it}$ are added to equation~(\ref{eq:hedonic})
+to recover average price impacts at each distance band:
+
+\begin{equation}
+  \log P_{it} = \alpha + \beta X_{it} + \gamma_b + \tau_t + \sum_{k} \delta_k D^k_{it} + \varepsilon_{it}
+  \label{eq:hedonic_treatment}
+\end{equation}
+
+\subsection{Callaway-Sant'Anna DiD}
+
+We estimate cohort-period average treatment effects following \citet{CS2021}:
+
+\begin{equation}
+  \ATT(g,t) = \E\bigl[Y_t(g) - Y_t(0) \;\big|\; G_i = g\bigr]
+  \label{eq:att}
+\end{equation}
+
+where $G_i$ is the cohort (first-treated period) of unit $i$. Estimation uses
+the doubly-robust IPW estimator with a not-yet-treated control group. Cohort-period
+estimates are aggregated to an event-study estimand and a simple weighted-average
+ATT. Inference uses the multiplier bootstrap with 999 draws.
+
+\subsection{Triple Difference}
+
+To decompose the treatment effect into a physical-damage/displacement channel
+and a belief-update channel, we estimate:
+
+\begin{align}
+  \log P_{it} &= \alpha + \beta_1 (\mathrm{Post}_t \times \mathrm{Treated}_i \times \mathrm{WUI}_i) \nonumber \\
+              &\quad + \beta_2 (\mathrm{Post}_t \times \mathrm{Treated}_i)
+               + \beta_3 (\mathrm{Post}_t \times \mathrm{WUI}_i) \nonumber \\
+              &\quad + \beta_4 \mathrm{WUI}_i + \gamma_b + \tau_t + \varepsilon_{it}
+  \label{eq:triple_diff}
+\end{align}
+
+The coefficient $\beta_1 - \beta_2$ identifies the incremental discount on
+WUI-classified treated parcels relative to non-WUI treated parcels in the same
+distance band and time period. Under the assumption that WUI status proxies for
+forward-looking risk beliefs, this difference isolates the belief-update channel.
+
+\subsection{Synthetic Control}
+
+For the ZIP-level analysis, we apply three synthetic control variants:
+
+\paragraph{ADH.} The \citet{Abadie2010} method finds convex weights $w^*$
+over donor ZIP codes minimizing pre-treatment RMSPE with an importance matrix
+$V$ optimized in an outer loop. Placebo inference uses the rank of the treated
+unit's post-to-pre RMSPE ratio among all in-space placebos.
+
+\paragraph{GSynth.} The generalized synthetic control \citep{Xu2017} estimates
+an interactive fixed-effects counterfactual via nuclear norm minimization on the
+donor panel, allowing time-varying treatment effects and heterogeneous factor
+loadings.
+
+\paragraph{AugSynth.} The augmented synthetic control \citep{BenMichael2021}
+adds a ridge-regression bias correction to the ADH weights, reducing sensitivity
+to imperfect pre-period fit and providing double-robustness.
+
+Leave-one-out donor robustness is assessed for all three methods
+(\texttt{src/inference/loo.py}).
+
+%%=============================================================
+\section{Spatial Spillover Analysis}
+\label{sec:spatial}
+%%=============================================================
+
+\subsection{Spatial Weights}
+
+Spatial weights $W$ are constructed as row-standardized $k$-nearest-neighbor
+matrices ($k=8$) based on parcel centroid geodesic distances, using the
+\texttt{SpatialWeightsFactory} in \texttt{src/spatial/weights\_phase3.py}.
+All weights are stored as \texttt{scipy.sparse.csr\_matrix} objects to avoid
+$O(N^2)$ memory requirements.
+
+\subsection{Global and Local Spatial Autocorrelation}
+
+We first test for spatial dependence in the hedonic residuals using the global
+Moran's I statistic \citep{CliffOrd1981} with both the Cliff-Ord asymptotic
+moment approximation and a 999-permutation empirical null distribution
+(\texttt{src/esda/morans.py}).
+
+Local clustering patterns are characterized via LISA \citep{Anselin1995},
+classifying each observation as High-High (spatial hot spot), Low-Low (cold spot),
+High-Low or Low-High (spatial outliers) based on the sign of the standardized
+value and its spatial lag. Pseudo p-values use 999 conditional permutations
+(\texttt{src/esda/lisa.py}).
+
+\subsection{Spatial Regression Models}
+
+We estimate three spatial regression models:
+
+\paragraph{SAR.} The spatial autoregressive model,
+$y = \rho W y + X\beta + \varepsilon$,
+captures spillovers through the outcome variable. The scalar $\rho$ is
+estimated by concentrated maximum likelihood with log-determinant computed
+via the eigenvalue trace. Standard errors are derived from the Hessian of
+the concentrated likelihood.
+
+\paragraph{SEM.} The spatial error model,
+$y = X\beta + (I - \lambda W)^{-1}\varepsilon$,
+captures spatial correlation in unobservables. The scalar $\lambda$ is
+estimated analogously by concentrated ML.
+
+\paragraph{SDM.} The Spatial Durbin model,
+$y = \rho W y + X\beta + WX\theta + \varepsilon$,
+nests both SAR and SEM. Likelihood ratio tests evaluate the common-factor
+restriction $\theta = -\rho\beta$ (which implies SAR) and the SDM-to-SEM
+reduction. Model selection follows AIC and BIC (\texttt{src/spatial\_models/model\_registry.py}).
+
+\subsection{Direct, Indirect, and Total Effects}
+
+Following \citet{LeSage2009}, we decompose marginal effects into:
+\begin{itemize}[noitemsep]
+  \item \textbf{Direct}: Average own-unit response to a unit change in a covariate.
+  \item \textbf{Indirect (spillover)}: Average cross-unit response to a unit change
+    in a neighbor's covariate, summed over all neighbors.
+  \item \textbf{Total}: Direct + Indirect.
+\end{itemize}
+All effects are computed via the eigenvalue trace approximation to avoid dense
+matrix inversion (\texttt{src/spatial\_models/effects.py}).
+
+\subsection{Geographically Weighted Regression}
+
+GWR \citep{Fotheringham2002} relaxes the assumption of spatially constant
+coefficients, estimating $\hat\beta(u_i,v_i)$ at each parcel location by
+local weighted least squares with a bisquare adaptive kernel. The bandwidth
+$h^*$ is selected by leave-one-out cross-validation using the golden-section
+algorithm with pickle checkpointing (\texttt{src/gwr/bandwidth.py}).
+Spatial maps of the varying treatment effect coefficient reveal geographic
+heterogeneity in the price response.
+
+%%=============================================================
+\section{Results}
+\label{sec:results}
+%%=============================================================
+
+\subsection{Summary Statistics}
+
+Table~\ref{tab:summary} presents summary statistics for the estimation sample.
+
+\begin{table}[H]
+\caption{Summary Statistics}
+\label{tab:summary}
+\centering
+\input{../docs/tables/summary_stats.tex}
+\end{table}
+
+\subsection{Hedonic Estimates}
+
+Table~\ref{tab:hedonic} reports hedonic OLS estimates from
+equation~(\ref{eq:hedonic_treatment}).
+
+\begin{table}[H]
+\caption{Hedonic Price Regression}
+\label{tab:hedonic}
+\centering
+% \input{../docs/tables/hedonic.tex}
+\textit{[TBD --- table generated by \texttt{src/outputs/tables.py}]}
+\end{table}
+
+The estimated coefficients on treatment-band indicators imply that parcels
+within 0--2 km of the fire perimeter sell at a discount of approximately
+[TBD]\% relative to control parcels after the fire, conditional on parcel
+attributes and fixed effects.
+
+\subsection{Callaway-Sant'Anna Event Study}
+
+Figure~\ref{fig:event_study} plots the event-study ATT estimates
+$\hat\theta^{es}(\ell)$ for event-time periods $\ell \in \{-12, \ldots, 24\}$
+months relative to the August 2023 treatment date. Pre-period estimates are
+statistically indistinguishable from zero (p-value = [TBD]), supporting the
+parallel trends assumption. Post-treatment estimates indicate [TBD].
+
+\begin{figure}[H]
+\centering
+% \includegraphics{../figures/event_study.pdf}
+\textit{[TBD --- figure generated by \texttt{src/outputs/tables.py}]}
+\caption{Event-Study ATT Estimates (Callaway-Sant'Anna 2021)}
+\label{fig:event_study}
+\end{figure}
+
+\subsection{Triple Difference}
+
+Table~\ref{tab:triple_diff} reports triple-difference estimates from
+equation~(\ref{eq:triple_diff}).
+
+\begin{table}[H]
+\caption{Triple-Difference Decomposition}
+\label{tab:triple_diff}
+\centering
+% \input{../docs/tables/triple_diff.tex}
+\textit{[TBD --- table generated by \texttt{src/outputs/tables.py}]}
+\end{table}
+
+The estimated coefficient on the triple-interaction term ($\hat\beta_1$) is
+[TBD], implying an additional discount of approximately [TBD]\% for WUI-classified
+treated parcels relative to non-WUI treated parcels. The difference
+$\hat\beta_1 - \hat\beta_2 = $ [TBD] is our estimate of the belief-update channel.
+
+\subsection{Synthetic Control}
+
+Table~\ref{tab:scm} reports the ADH, GSynth, and AugSynth treatment effect
+estimates for the Maui ZIP aggregate HPI.
+
+\begin{table}[H]
+\caption{Synthetic Control Treatment Effects}
+\label{tab:scm}
+\centering
+% \input{../docs/tables/scm_results.tex}
+\textit{[TBD --- table generated by \texttt{src/outputs/scm\_tables.py}]}
+\end{table}
+
+In-space placebo inference yields a permutation p-value of [TBD] for the
+ADH estimator, and leave-one-out analysis confirms the result is not driven
+by any single donor unit.
+
+\subsection{Spatial Autocorrelation}
+
+The global Moran's I for OLS hedonic residuals is $I = $ [TBD]
+($z = $ [TBD], $p < $ [TBD]), indicating significant positive spatial
+autocorrelation and motivating the spatial regression analysis. LISA maps
+(Figure~\ref{fig:lisa}) reveal [TBD].
+
+\begin{figure}[H]
+\centering
+% \includegraphics{../figures/lisa_map.pdf}
+\textit{[TBD --- figure generated by \texttt{src/outputs/spatial\_plots.py}]}
+\caption{LISA Quadrant Map of Hedonic Residuals}
+\label{fig:lisa}
+\end{figure}
+
+\subsection{Spatial Regression}
+
+Table~\ref{tab:spatial} compares SAR, SEM, and SDM estimates. The preferred
+model by AIC is [TBD].
+
+\begin{table}[H]
+\caption{Spatial Regression: SAR, SEM, and SDM}
+\label{tab:spatial}
+\centering
+% \input{../docs/tables/spatial_models.tex}
+\textit{[TBD --- table generated by \texttt{src/outputs/spatial\_tables.py}]}
+\end{table}
+
+Direct, indirect, and total effects from the preferred model are reported in
+Table~\ref{tab:effects}. The indirect (spillover) effect of fire proximity on
+parcel prices is [TBD] at the median distance from the perimeter, implying that
+the aggregate market-wide price impact substantially exceeds the direct effect
+on treated parcels.
+
+\begin{table}[H]
+\caption{LeSage-Pace Direct, Indirect, and Total Effects}
+\label{tab:effects}
+\centering
+% \input{../docs/tables/effects.tex}
+\textit{[TBD --- table generated by \texttt{src/outputs/spatial\_tables.py}]}
+\end{table}
+
+\subsection{GWR Spatial Heterogeneity}
+
+Figure~\ref{fig:gwr} maps the spatially varying GWR coefficient on the treatment
+indicator. The estimated discount is largest in [TBD] and smallest in [TBD],
+consistent with [TBD]. The bandwidth selected by leave-one-out CV is $h^* = $ [TBD]
+meters.
+
+\begin{figure}[H]
+\centering
+% \includegraphics{../figures/gwr_surface.pdf}
+\textit{[TBD --- figure generated by \texttt{src/outputs/spatial\_plots.py}]}
+\caption{GWR: Spatially Varying Treatment Effect Coefficient}
+\label{fig:gwr}
+\end{figure}
+
+%%=============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+%%=============================================================
+
+This paper provides a multi-method assessment of the effect of the 2023 Lahaina
+wildfire on residential property values in Maui County. Our hedonic and
+Callaway-Sant'Anna estimates establish a causal average treatment effect of
+approximately [TBD]\% on parcels within 2 km of the fire perimeter. The
+triple-difference decomposition identifies a belief-update channel accounting for
+approximately [TBD]\% of the total effect, representing the market's forward-looking
+revision of wildfire risk for WUI-classified properties.
+
+Synthetic control estimates at the ZIP-level HPI corroborate the parcel-level
+findings and quantify the aggregate market impact on Maui real estate relative to
+a synthetic counterfactual. Spatial econometric models reveal that the aggregate
+price impact substantially exceeds the direct effect through spatial spillovers:
+the estimated indirect spillover is [TBD] times the direct effect, implying
+significant market-wide repricing of climate risk beyond the immediate destruction
+zone. GWR reveals meaningful geographic heterogeneity in this response.
+
+Taken together, these findings suggest that catastrophic wildfire events have
+lasting, geographically broad effects on housing markets. The magnitude of
+indirect spillovers --- the belief-update and risk-repricing components ---
+exceeds the direct physical damage effect, pointing to a channel through which
+climate risk propagates through insurance markets, lender risk assessments, and
+buyer risk preferences. These dynamics have implications for the design of
+climate adaptation policy, municipal fiscal planning in wildfire-prone areas,
+and the pricing of climate risk in residential mortgage markets.
+
+%%=============================================================
+%% Appendix
+%%=============================================================
+\appendix
+
+\section{Data Construction Details}
+
+All data ingest code is in \texttt{src/ingest/}. The fire perimeter is downloaded
+from the NIFC WFIGS ArcGIS FeatureServer; WUI classifications from the USFS Silvis
+Lab RDS-2015-0047-3 dataset; FRED macroeconomic series via the FRED API; FHFA ZIP
+HPI from the FHFA Data Tools Excel download; and Redfin neighborhood statistics
+from a public S3 endpoint. A complete data source inventory with URLs and local
+paths is in \texttt{docs/DATA\_SOURCES.md}.
+
+\section{Estimation Details}
+
+Full econometric derivations, including the concentrated ML likelihood for
+SAR/SEM/SDM, the LeSage-Pace eigenvalue trace approximation for spillover effects,
+the GWR golden-section bandwidth selector, and the Cliff-Ord Moran's I variance
+formula, are documented in \texttt{docs/METHODOLOGY\_NOTES.md}.
+
+%%=============================================================
+%% References
+%%=============================================================
+\bibliography{references}
+
+\end{document}

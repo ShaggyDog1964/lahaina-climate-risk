@@ -100,9 +100,9 @@ class ClickHouseClient:
         rows = df.to_dict(orient="records")
         client.execute("INSERT INTO model_comparison VALUES", rows)
 
-    def query(self, sql: str) -> pd.DataFrame:
+    def query(self, sql: str, parameters: dict | None = None) -> pd.DataFrame:
         client = self._get_client()
-        result = client.execute(sql, with_column_types=True)
+        result = client.execute(sql, params=parameters or {}, with_column_types=True)
         data, columns = result
         col_names = [c[0] for c in columns]
         return pd.DataFrame(data, columns=col_names)
