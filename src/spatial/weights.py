@@ -29,7 +29,7 @@ def build_weights(
     if len(gdf) < k + 1:
         raise ValueError(f"Need at least {k + 1} observations for KNN with k={k}.")
 
-    coords = list(zip(gdf.geometry.x, gdf.geometry.y))
+    coords = list(zip(gdf.geometry.x, gdf.geometry.y, strict=False))
     w = lps_weights.KNN(coords, k=k)
     w.transform = "r"
 
@@ -57,7 +57,7 @@ def build_inverse_distance_weights(
         Row-standardized inverse-distance weights object.
     """
     projected = gdf.to_crs("EPSG:32604")
-    coords = list(zip(projected.geometry.x, projected.geometry.y))
+    coords = list(zip(projected.geometry.x, projected.geometry.y, strict=False))
     threshold_m = threshold_km * 1000.0
 
     w = lps_weights.DistanceBand(coords, threshold=threshold_m, binary=False)

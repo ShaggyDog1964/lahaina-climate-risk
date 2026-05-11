@@ -47,10 +47,7 @@ def load_fire_perimeter(source: str = "nifc") -> gpd.GeoDataFrame:
         CACHE_PATH.write_text(json.dumps(geojson_data))
         gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
 
-    if gdf.crs is None:
-        gdf = gdf.set_crs("EPSG:4326")
-    else:
-        gdf = gdf.to_crs("EPSG:4326")
+    gdf = gdf.set_crs("EPSG:4326") if gdf.crs is None else gdf.to_crs("EPSG:4326")
 
     if gdf.geometry.isnull().any():
         raise ValueError("Fire perimeter GeoDataFrame contains null geometries.")

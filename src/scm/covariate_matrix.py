@@ -36,7 +36,7 @@ def build_covariate_matrix(
     def _extract(zip_code: str) -> np.ndarray:
         zdf = pre[pre["zip_code"] == zip_code].set_index("year_month")["log_zhvi"]
         zdf = zdf.reindex(months).ffill().bfill()
-        y = zdf.values
+        y = np.asarray(zdf)
 
         mean_zhvi = float(np.mean(y))
         reg = LinearRegression().fit(t_vals, y)
@@ -93,7 +93,7 @@ def build_outcome_matrices(
 
     def _series(zip_code: str) -> np.ndarray:
         zdf = pre[pre["zip_code"] == zip_code].set_index("year_month")["log_zhvi"]
-        return zdf.reindex(months).ffill().bfill().values
+        return np.asarray(zdf.reindex(months).ffill().bfill())
 
     Y1_pre = _series(donor_pool.treated_zip)
     Y0_pre = np.column_stack([_series(z) for z in donors])  # (T0, J)

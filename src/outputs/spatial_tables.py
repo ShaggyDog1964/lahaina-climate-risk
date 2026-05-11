@@ -1,11 +1,10 @@
 """LaTeX table generation for spatial econometrics results."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def _stars(p: float) -> str:
@@ -54,7 +53,7 @@ def sar_sem_sdm_latex(model_registry, lrt_sdm_sar: dict | None = None, wald_sdm_
         r"\hline",
     ]
 
-    model_names = [r["model"] for r in rows_data]
+    [r["model"] for r in rows_data]
     for rname, key in [("Spatial parameter", "spatial_param"), ("Log-likelihood", "ll"), ("AIC", "aic"), ("BIC", "bic")]:
         vals = [_fmt(r[key]) + _stars(r.get("spatial_p", 1.0) if key == "spatial_param" else 1.0) for r in rows_data]
         lines.append(f"{rname} & " + " & ".join(vals) + r" \\")
@@ -122,7 +121,7 @@ def effects_latex(effects_df: pd.DataFrame) -> str:
 
 
 def moran_lisa_latex(global_morans_dict: dict, cluster_counts_dict: dict) -> str:
-    I = _fmt(global_morans_dict.get("I", float("nan")))
+    moran_i = _fmt(global_morans_dict.get("I", float("nan")))
     EI = _fmt(global_morans_dict.get("E_I", float("nan")))
     z = _fmt(global_morans_dict.get("z_score", float("nan")))
     p_a = _fmt(global_morans_dict.get("p_value_analytical", float("nan")), 4)
@@ -137,7 +136,7 @@ def moran_lisa_latex(global_morans_dict: dict, cluster_counts_dict: dict) -> str
         r"\hline\hline",
         r"\multicolumn{2}{l}{\textit{Panel A: Global Moran's I}} \\",
         r"\hline",
-        f"Moran's $I$ & {I}" + r" \\",
+        f"Moran's $I$ & {moran_i}" + r" \\",
         f"$E[I]$ & {EI}" + r" \\",
         f"$z$-score & {z}" + r" \\",
         f"$p$-value (analytical) & {p_a}" + r" \\",

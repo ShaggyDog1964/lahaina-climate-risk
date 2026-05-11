@@ -22,13 +22,13 @@ class GlobalMoransI:
         W: sp.csr_matrix,
         n_permutations: int = 999,
         seed: int = 42,
-    ) -> "GlobalMoransI":
+    ) -> GlobalMoransI:
         n = len(y)
         z = (y - y.mean()) / y.std()
         Wz = W @ z
         S0 = W.sum()
-        I = float((z @ Wz) / (z @ z) * (n / S0))
-        self.I_ = I
+        moran_i = float((z @ Wz) / (z @ z) * (n / S0))
+        self.I_ = moran_i
 
         # Analytical moments (Cliff-Ord normality assumption)
         E_I = -1.0 / (n - 1)
@@ -45,7 +45,7 @@ class GlobalMoransI:
         D = (n - 1) * (n - 2) * (n - 3) * S0 ** 2
         Var_I = (A - C) / D - E_I ** 2
         self.Var_I_ = float(Var_I)
-        z_score = (I - E_I) / np.sqrt(max(Var_I, 1e-12))
+        z_score = (moran_i - E_I) / np.sqrt(max(Var_I, 1e-12))
         self.z_score_ = float(z_score)
 
         from scipy.stats import norm
@@ -60,7 +60,7 @@ class GlobalMoransI:
             I_perm[k] = float((zp @ Wzp) / (zp @ zp) * (n / S0))
         self.I_perm_distribution_ = I_perm
         self.p_value_permutation_ = float(
-            (np.sum(I_perm >= I) + 1) / (n_permutations + 1)
+            (np.sum(I_perm >= moran_i) + 1) / (n_permutations + 1)
         )
         return self
 

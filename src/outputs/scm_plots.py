@@ -49,6 +49,7 @@ def plot_scm_path(
     created = ax is None
     if created:
         fig, ax = plt.subplots(figsize=(8, 4))
+    assert ax is not None
 
     x = np.arange(len(time_periods))
     ax.plot(x, Y1_all, color=TREATED_COLOR, linewidth=1.8, label="Lahaina (96761)")
@@ -92,6 +93,7 @@ def plot_placebo_distribution(
     created = ax is None
     if created:
         fig, ax = plt.subplots(figsize=(8, 4))
+    assert ax is not None
 
     gap_cols = [c for c in placebo_df.columns if c.startswith("gap_t")]
     x = np.arange(len(time_periods))
@@ -138,6 +140,7 @@ def plot_loo(
     created = ax is None
     if created:
         fig, ax = plt.subplots(figsize=(8, 4))
+    assert ax is not None
 
     x = np.arange(len(time_periods))
 
@@ -180,6 +183,7 @@ def plot_model_comparison(
     created = ax is None
     if created:
         fig, ax = plt.subplots(figsize=(8, 4))
+    assert ax is not None
 
     colors = {"ADH": TREATED_COLOR, "GSynth": "#E15759", "ASCM": "#59A14F"}
     x = np.arange(len(time_periods))

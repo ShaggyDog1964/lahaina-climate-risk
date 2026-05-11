@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+
+logger = logging.getLogger(__name__)
 
 
 class DonorPool:
@@ -79,7 +82,7 @@ class DonorPool:
             if r2 < min_r2:
                 continue
 
-            corr = float(np.corrcoef(treated_series.values, zdf.values)[0, 1])
+            corr = float(np.corrcoef(np.asarray(treated_series), np.asarray(zdf))[0, 1])
             if corr >= 0.5:
                 keep.append(z)
         return keep
@@ -121,5 +124,5 @@ class DonorPool:
             self._donor_panel.to_sql(
                 "donor_panel", engine, if_exists="replace", index=False
             )
-        except Exception:
-            pass  # Postgres optional; never block execution
+        except Exception as e:
+            logger.warning(str(e))  # Postgres optional; never block execution

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 from scipy.optimize import minimize_scalar
-from scipy.stats import norm, chi2
+from scipy.stats import chi2, norm
 
 from src.spatial_models.sar import _numerical_hessian
 
@@ -35,7 +35,7 @@ class SpatialDurbinModel:
         W: sp.csr_matrix,
         eigenvalues: np.ndarray,
         x_names: list[str] | None = None,
-    ) -> "SpatialDurbinModel":
+    ) -> SpatialDurbinModel:
         n, k = X.shape
         self._n = n
         self._k = k
@@ -59,10 +59,7 @@ class SpatialDurbinModel:
             WX_parts.append(np.asarray(W @ X[:, c]).ravel())
             wx_names.append(f"W_{self._x_names[c]}" if self._x_names else f"Wx{c}")
 
-        if WX_parts:
-            WX = np.column_stack(WX_parts)
-        else:
-            WX = np.empty((n, 0))
+        WX = np.column_stack(WX_parts) if WX_parts else np.empty((n, 0))
 
         X_aug = np.hstack([X, WX])
         self._k_aug = X_aug.shape[1]
@@ -77,7 +74,7 @@ class SpatialDurbinModel:
             if sigma2 <= 0:
                 return 1e10
             log_det = float(np.sum(np.log(np.abs(1.0 - rho * eigenvalues))))
-            return -(log_det - (n / 2.0) * np.log(sigma2))
+            return float(-(log_det - (n / 2.0) * np.log(sigma2)))
 
         rho_min = 1.0 / np.min(eigenvalues) + 1e-4
         rho_max = 1.0 / np.max(eigenvalues) - 1e-4
@@ -125,7 +122,7 @@ class SpatialDurbinModel:
             e_p = np.asarray(A_p @ y).ravel() - X_aug @ beta_p
             s2 = max(float(e_p @ e_p / n), 1e-12)
             ld = float(np.sum(np.log(np.abs(1.0 - rho_p * eigenvalues))))
-            return -(ld - (n / 2.0) * np.log(2 * np.pi * s2) - n / 2.0)
+            return float(-(ld - (n / 2.0) * np.log(2 * np.pi * s2) - n / 2.0))
 
         H = _numerical_hessian(_full_ll_neg, params0)
         try:

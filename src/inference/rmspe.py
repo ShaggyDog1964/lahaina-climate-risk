@@ -24,4 +24,4 @@ def rmspe_ratio(pre: float, post: float) -> float:
 
 def gap_series(Y1: np.ndarray, Y_synth: np.ndarray) -> np.ndarray:
     """Element-wise gap: Y1 - synthetic."""
-    return Y1 - Y_synth
+    return np.asarray(Y1 - Y_synth).ravel()

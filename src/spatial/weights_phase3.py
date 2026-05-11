@@ -1,15 +1,16 @@
 """Phase 3 spatial weights factory: KNN, IDW, Queen contiguity."""
 from __future__ import annotations
+
 import logging
 import os
 import warnings
 from pathlib import Path
 
 import geopandas as gpd
+import libpysal.weights as lps_weights
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-import libpysal.weights as lps_weights
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class SpatialWeightsFactory:
         threshold_m = bandwidth_km * 1000.0
         w = lps_weights.DistanceBand.from_dataframe(projected, threshold=threshold_m, binary=False)
         # Replace with 1/d² weights
-        coords = list(zip(projected.geometry.x, projected.geometry.y))
+        coords = list(zip(projected.geometry.x, projected.geometry.y, strict=False))
         for i in w.neighbors:
             nbrs = w.neighbors[i]
             if nbrs:
@@ -86,20 +87,21 @@ class SpatialWeightsFactory:
     ) -> np.ndarray:
         """Compute real eigenvalues of W; cache to .npy if path given."""
         if cache_path and Path(cache_path).exists():
-            return np.load(cache_path)
+            return np.asarray(np.load(cache_path), dtype=np.float64)
         n = W_sparse.shape[0]
         k_eigs = min(n - 2, n)
         try:
             vals, _ = spla.eigs(W_sparse.astype(complex), k=k_eigs, which="LM")
             eigs = np.real(vals)
-        except Exception:
+        except Exception as e:
+            logger.warning("eigs failed (%s); falling back to dense eigvals.", e)
             # Dense fallback for small n
             eigs = np.linalg.eigvals(W_sparse.toarray()).real
         eigs = np.sort(eigs)
         if cache_path:
             Path(cache_path).parent.mkdir(parents=True, exist_ok=True)
             np.save(cache_path, eigs)
-        return eigs
+        return np.asarray(eigs, dtype=np.float64)
 
     def persist_weights_to_postgis(
         self,
@@ -118,7 +120,7 @@ class SpatialWeightsFactory:
             engine = sa.create_engine(dsn)
             rows = []
             for i, nbrs in w.neighbors.items():
-                for j, wt in zip(nbrs, w.weights[i]):
+                for j, wt in zip(nbrs, w.weights[i], strict=False):
                     rows.append({"origin_id": i, "dest_id": j, "weight": wt})
             import pandas as pd
             df = pd.DataFrame(rows)

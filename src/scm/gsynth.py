@@ -27,7 +27,7 @@ class GeneralizedSyntheticControl:
         Y0_all: np.ndarray,
         Y1_all: np.ndarray,
         r: int = 2,
-    ) -> "GeneralizedSyntheticControl":
+    ) -> GeneralizedSyntheticControl:
         """Fit IFE model via alternating LS (EM-like).
 
         Args:
@@ -81,6 +81,8 @@ class GeneralizedSyntheticControl:
 
     def treatment_effect(self, Y1_all: np.ndarray) -> np.ndarray:
         """Gap series: Y1_all - counterfactual."""
+        if self.F_full_ is None or self.lambda_1_ is None:
+            raise RuntimeError("Model not fitted. Call fit() before treatment_effect().")
         counterfactual = self.F_full_ @ self.lambda_1_
         return Y1_all - counterfactual
 
@@ -108,7 +110,7 @@ class GeneralizedSyntheticControl:
                 try:
                     U, S, Vt = np.linalg.svd(Y0_loo, full_matrices=False)
                     F_r = U[:, :r] * S[:r]
-                    Lambda0_loo = np.linalg.lstsq(F_r, Y0_loo, rcond=None)[0]
+                    np.linalg.lstsq(F_r, Y0_loo, rcond=None)[0]
                     lambda_j = np.linalg.lstsq(
                         F_r, Y0_pre[:, j], rcond=None
                     )[0]

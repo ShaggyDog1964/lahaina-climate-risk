@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
 from src.inference.rmspe import gap_series, post_rmspe, pre_rmspe, rmspe_ratio
+
+logger = logging.getLogger(__name__)
 
 
 class InSpacePlacebo:
@@ -67,7 +71,7 @@ class InSpacePlacebo:
 
             def _series(df: pd.DataFrame, zip_code: str, months: list) -> np.ndarray:
                 s = df[df["zip_code"] == zip_code].set_index("year_month")["log_zhvi"]
-                return s.reindex(months).ffill().bfill().values
+                return np.asarray(s.reindex(months).ffill().bfill()).ravel()
 
             Y1_pre = _series(pre, pseudo_treated, months_pre)
             Y0_pre = np.column_stack(
@@ -81,7 +85,6 @@ class InSpacePlacebo:
             )
 
             # Simple covariate matrix: pre-period mean per zip
-            k = 1
             X1 = np.array([float(np.mean(Y1_pre))])
             X0 = np.array([[float(np.mean(Y0_pre[:, j]))] for j in range(len(other_donors))]).T
 
@@ -90,10 +93,7 @@ class InSpacePlacebo:
 
             pre_r = pre_rmspe(Y1_pre, Y0_pre @ model.w_)
 
-            if len(Y1_post) > 0:
-                post_r = post_rmspe(Y1_post, Y0_post @ model.w_)
-            else:
-                post_r = pre_r  # fallback
+            post_r = post_rmspe(Y1_post, Y0_post @ model.w_) if len(Y1_post) > 0 else pre_r
 
             ratio = rmspe_ratio(pre_r, post_r)
             gap_pre = gap_series(Y1_pre, Y0_pre @ model.w_)
@@ -110,7 +110,8 @@ class InSpacePlacebo:
                 row[f"gap_t{i}"] = float(g)
 
             return row
-        except Exception:
+        except Exception as e:
+            logger.warning(str(e))
             return None
 
     def p_value(self, treated_ratio: float) -> float:
@@ -122,7 +123,7 @@ class InSpacePlacebo:
 
     def discard_poor_fit(
         self, max_pre_rmspe_multiple: float = 2.0
-    ) -> "InSpacePlacebo":
+    ) -> InSpacePlacebo:
         """Drop placebos with pre-RMSPE > multiple × treated pre-RMSPE."""
         if self.placebo_df is None:
             raise RuntimeError("Call run() first.")

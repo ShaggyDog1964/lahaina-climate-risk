@@ -4,8 +4,8 @@ from __future__ import annotations
 import logging
 import math
 import pickle
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import geopandas as gpd
 import numpy as np

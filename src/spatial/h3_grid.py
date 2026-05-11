@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import geopandas as gpd
 import h3
-import pandas as pd
 from shapely.geometry import Polygon
 
 

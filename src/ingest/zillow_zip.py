@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 
 import pandas as pd
@@ -40,7 +39,6 @@ def fetch_zhvi_by_zip(state: str = "HI", cache_dir: Path | None = None) -> pd.Da
         raw = raw[raw["State"] == state].copy()
 
     # Identify date columns (YYYY-MM-DD format)
-    id_cols = [c for c in raw.columns if not _is_date_col(c)]
     date_cols = [c for c in raw.columns if _is_date_col(c)]
 
     if "RegionName" not in raw.columns:

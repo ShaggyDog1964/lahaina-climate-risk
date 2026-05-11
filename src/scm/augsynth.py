@@ -29,7 +29,7 @@ class AugmentedSyntheticControl:
         Y0_all: np.ndarray,
         Y1_all: np.ndarray,
         lambda_ridge: float | None = None,
-    ) -> "AugmentedSyntheticControl":
+    ) -> AugmentedSyntheticControl:
         """Fit ASCM given ADH weights.
 
         Args:
@@ -79,6 +79,7 @@ class AugmentedSyntheticControl:
 
     def treatment_effect(self) -> np.ndarray:
         """Return ASCM treatment effect series."""
+        assert self.tau_ascm_ is not None, "Model not fitted. Call fit() before treatment_effect()."
         return self.tau_ascm_
 
     def _tune_lambda(self, Y0_pre: np.ndarray) -> float:
@@ -92,12 +93,10 @@ class AugmentedSyntheticControl:
             for j in range(J):
                 mask = np.ones(J, dtype=bool)
                 mask[j] = False
-                X_train = Y0_pre[:, mask].T  # (J-1, T0)
-                y_train = Y0_pre[:, j]       # (J-1,) — one per non-loo donor at each period
+                y_train = Y0_pre[:, j]       # one per non-loo donor at each period
 
                 # Predict held-out donor series from others' pre-periods
                 # Use all T0 timepoints as separate samples
-                X_feat = X_train  # (J-1, T0) → features are other donors' values
                 # Actually: predict each donor's value at each t using other donors at same t
                 X_feat2 = Y0_pre[mask, :].T if False else Y0_pre[:, mask]  # (T0, J-1)
                 reg = Ridge(alpha=alpha, fit_intercept=True)

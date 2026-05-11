@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-
 _LISA_COLORS = {
     "HH": "#d73027",
     "LL": "#4575b4",
@@ -26,7 +25,6 @@ def plot_lisa_map(gdf: gpd.GeoDataFrame, output_path: str) -> str:
     center_lon = float(gdf.geometry.centroid.x.mean())
     m = folium.Map(location=[center_lat, center_lon], zoom_start=12, tiles="CartoDB positron")
 
-    label_col = "cluster_label" if "cluster_label" in gdf.columns else "NS"
 
     for _, row in gdf.iterrows():
         color = _LISA_COLORS.get(str(row.get("cluster_label", "NS")), "#f5f5f5")
@@ -69,10 +67,11 @@ def plot_gwr_surface(
     if col not in gdf.columns:
         raise ValueError(f"Column {col!r} not found in GeoDataFrame.")
 
-    vals = gdf[col].values
+    vals = np.asarray(gdf[col])
     vmin, vmax = float(np.nanpercentile(vals, 5)), float(np.nanpercentile(vals, 95))
     if vmin == vmax:
-        vmin -= 0.1; vmax += 0.1
+        vmin -= 0.1
+        vmax += 0.1
 
     center_lat = float(gdf.geometry.centroid.y.mean())
     center_lon = float(gdf.geometry.centroid.x.mean())
@@ -126,9 +125,9 @@ def plot_spillover_decay(
     ax.set_facecolor("#f8f8f8")
     fig.patch.set_facecolor("white")
 
-    x = effects_df[dist_col].values if dist_col in effects_df.columns else np.arange(len(effects_df))
-    y = effects_df[beta_col].values if beta_col in effects_df.columns else effects_df.iloc[:, 0].values
-    se = effects_df[se_col].values if se_col in effects_df.columns else np.ones_like(y) * 0.01
+    x = np.asarray(effects_df[dist_col]) if dist_col in effects_df.columns else np.arange(len(effects_df))
+    y = np.asarray(effects_df[beta_col]) if beta_col in effects_df.columns else np.asarray(effects_df.iloc[:, 0])
+    se = np.asarray(effects_df[se_col]) if se_col in effects_df.columns else np.ones_like(y) * 0.01
 
     ax.errorbar(x, y, yerr=1.96 * se, fmt="o", color="#2166ac", capsize=4, label="Mean local β ± 1.96 SE")
 
@@ -165,7 +164,7 @@ def plot_spatial_model_comparison(model_registry, output_path: str) -> str:
     fig, ax = plt.subplots(figsize=(6, 4))
     colors = ["#1f78b4", "#33a02c", "#e31a1c", "#ff7f00"]
     bars = ax.bar(df["model"], df["aic"], color=colors[: len(df)], edgecolor="white")
-    for bar, (_, row) in zip(bars, df.iterrows()):
+    for bar, (_, row) in zip(bars, df.iterrows(), strict=False):
         sp_val = row.get("spatial_param", float("nan"))
         ax.text(
             bar.get_x() + bar.get_width() / 2,

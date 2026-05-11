@@ -4,9 +4,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
 from scipy.optimize import minimize_scalar
-from scipy.stats import norm, chi2
+from scipy.stats import chi2, norm
 
 from src.spatial_models.sar import _numerical_hessian
 
@@ -31,7 +30,7 @@ class SpatialErrorModel:
         W: sp.csr_matrix,
         eigenvalues: np.ndarray,
         x_names: list[str] | None = None,
-    ) -> "SpatialErrorModel":
+    ) -> SpatialErrorModel:
         n, k = X.shape
         self._n = n
         self._k = k
@@ -49,7 +48,7 @@ class SpatialErrorModel:
             if sigma2_lam <= 0:
                 return 1e10
             log_det = float(np.sum(np.log(np.abs(1.0 - lam * eigenvalues))))
-            return -(log_det - (n / 2.0) * np.log(sigma2_lam))
+            return float(-(log_det - (n / 2.0) * np.log(sigma2_lam)))
 
         lam_min = 1.0 / np.min(eigenvalues) + 1e-4
         lam_max = 1.0 / np.max(eigenvalues) - 1e-4
@@ -96,7 +95,7 @@ class SpatialErrorModel:
             e_p = np.asarray(B_p @ y).ravel() - np.asarray(B_p @ X).ravel() @ beta_p if X.shape[1] == 1 else np.asarray(B_p @ y).ravel() - (B_p @ X) @ beta_p
             s2 = max(float(e_p @ e_p / n), 1e-12)
             ld = float(np.sum(np.log(np.abs(1.0 - lam_p * eigenvalues))))
-            return -(ld - (n / 2.0) * np.log(2 * np.pi * s2) - n / 2.0)
+            return float(-(ld - (n / 2.0) * np.log(2 * np.pi * s2) - n / 2.0))
 
         H = _numerical_hessian(_full_ll_neg, params0)
         try:
@@ -112,13 +111,13 @@ class SpatialErrorModel:
 
     def breusch_pagan(self, residuals: np.ndarray, X: np.ndarray) -> dict:
         """Spatial Breusch-Pagan test for heteroskedasticity."""
-        n = len(residuals)
+        len(residuals)
         e2 = residuals ** 2
         sigma2 = e2.mean()
         g = e2 / sigma2 - 1.0
         _, _, _, _ = np.linalg.lstsq(X, g, rcond=None)
-        from statsmodels.regression.linear_model import OLS
         import statsmodels.api as sm
+        from statsmodels.regression.linear_model import OLS
         exog = sm.add_constant(X) if X.shape[1] > 1 else X
         res_aux = OLS(g, exog).fit()
         bp_stat = float(res_aux.ess / 2.0)

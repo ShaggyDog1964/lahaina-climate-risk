@@ -1,8 +1,8 @@
 """Geographically Weighted Regression (GWR)."""
 from __future__ import annotations
 
-import numpy as np
 import geopandas as gpd
+import numpy as np
 
 
 class GeographicallyWeightedRegression:
@@ -101,7 +101,7 @@ class GeographicallyWeightedRegression:
         X: np.ndarray,
         bandwidth_km: float,
         kernel: str = "bisquare",
-    ) -> "GeographicallyWeightedRegression":
+    ) -> GeographicallyWeightedRegression:
         projected = gdf.to_crs("EPSG:32604").reset_index(drop=True)
         coords = np.column_stack([projected.geometry.x, projected.geometry.y])
         from scipy.spatial.distance import cdist

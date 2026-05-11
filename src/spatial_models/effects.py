@@ -1,10 +1,22 @@
 """LeSage-Pace direct/indirect/total effects decomposition for SDM."""
 from __future__ import annotations
 
+from typing import Protocol
+
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
+
+
+class SDMProtocol(Protocol):
+    """Protocol describing the interface expected from a fitted SDM object."""
+
+    rho_: float
+    beta_: np.ndarray
+    theta_: np.ndarray
+    _k: int
+    _x_names: list[str]
+    _cov_: np.ndarray
 
 
 class LeSagePaceEffects:
@@ -14,11 +26,11 @@ class LeSagePaceEffects:
 
     def compute(
         self,
-        sdm: object,
+        sdm: SDMProtocol,
         W: sp.csr_matrix,
         n_simulations: int = 1000,
         seed: int = 42,
-    ) -> "LeSagePaceEffects":
+    ) -> LeSagePaceEffects:
         n = W.shape[0]
         rho = sdm.rho_
         beta = sdm.beta_
@@ -37,7 +49,7 @@ class LeSagePaceEffects:
 
         # Find non-intercept indices
         non_intercept_indices = []
-        for i, name in enumerate(x_names):
+        for i, _name in enumerate(x_names):
             if not np.allclose(beta[i] if i < len(beta) else 0, beta[0]) or i > 0:
                 non_intercept_indices.append(i)
         # If only intercept detected, use all non-zero beta indices
@@ -90,7 +102,10 @@ class LeSagePaceEffects:
         cov_psd = eigvecs_cov @ np.diag(eigvals_cov) @ eigvecs_cov.T
 
         sims = rng.multivariate_normal(params0, cov_psd, size=n_simulations)
-        sim_effects = {name: {"direct": [], "indirect": [], "total": []} for name in [r["variable"] for r in rows]}
+        sim_effects: dict[str, dict[str, list[float]]] = {
+            name: {"direct": [], "indirect": [], "total": []}
+            for name in [r["variable"] for r in rows]
+        }
 
         for sim_params in sims:
             rho_s = sim_params[0]

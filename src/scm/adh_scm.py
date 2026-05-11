@@ -75,7 +75,7 @@ class ADHSyntheticControl:
         Y0_pre: np.ndarray,
         Y1_pre: np.ndarray,
         donor_names: list[str] | None = None,
-    ) -> "ADHSyntheticControl":
+    ) -> ADHSyntheticControl:
         """Fit ADH synthetic control.
 
         Args:
@@ -141,7 +141,7 @@ class ADHSyntheticControl:
         """Return model summary dict."""
         weights = {}
         if self._donor_names and self.w_ is not None:
-            weights = dict(zip(self._donor_names, self.w_.tolist()))
+            weights = dict(zip(self._donor_names, self.w_.tolist(), strict=False))
         return {
             "weights": weights,
             "pre_rmspe": self.pre_rmspe_,

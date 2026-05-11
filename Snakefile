@@ -20,6 +20,8 @@ rule all:
     input:
         # Ingest outputs
         "data/raw/fred/series.parquet",
+        "data/raw/redfin/hawaii_neighborhoods.parquet",
+        "data/raw/fhfa/hpi_zip.parquet",
         "data/raw/fire/lahaina_perimeter.geojson",
         "data/interim/parcels_clean.parquet",
         "data/interim/parcels_wui.parquet",
@@ -59,6 +61,32 @@ df = fetch_series(
 )
 df.to_parquet('{output}', engine='pyarrow')
 "
+        """
+
+rule fetch_redfin:
+    output:
+        "data/raw/redfin/hawaii_neighborhoods.parquet",
+    log:
+        "logs/fetch_redfin.log",
+    shell:
+        """
+        python -c "
+from src.ingest.redfin import fetch_redfin_neighborhood
+fetch_redfin_neighborhood()
+" 2>&1 | tee {log}
+        """
+
+rule fetch_fhfa_zip:
+    output:
+        "data/raw/fhfa/hpi_zip.parquet",
+    log:
+        "logs/fetch_fhfa_zip.log",
+    shell:
+        """
+        python -c "
+from src.ingest.fred import fetch_fhfa_zip_hpi
+fetch_fhfa_zip_hpi()
+" 2>&1 | tee {log}
         """
 
 rule fetch_fire:

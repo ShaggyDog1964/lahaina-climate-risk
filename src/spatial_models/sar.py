@@ -32,8 +32,10 @@ class SpatialLagModel:
         W: sp.csr_matrix,
         eigenvalues: np.ndarray,
         x_names: list[str] | None = None,
-    ) -> "SpatialLagModel":
+    ) -> SpatialLagModel:
         n, k = X.shape
+        if np.std(y) < 1e-12:
+            raise ValueError("y has no variation; SAR model cannot be estimated on a constant outcome.")
         self._n = n
         self._k = k
         self._x_names = x_names or [f"x{i}" for i in range(k)]
@@ -49,7 +51,7 @@ class SpatialLagModel:
             if sigma2_rho <= 0:
                 return 1e10
             log_det = float(np.sum(np.log(np.abs(1.0 - rho * eigenvalues))))
-            return -(log_det - (n / 2.0) * np.log(sigma2_rho))
+            return float(-(log_det - (n / 2.0) * np.log(sigma2_rho)))
 
         # Bounds from eigenvalues
         rho_min = 1.0 / np.min(eigenvalues) + 1e-4
@@ -97,7 +99,7 @@ class SpatialLagModel:
             e_p = np.asarray(A_p @ y).ravel() - X @ beta_p
             s2 = max(float(e_p @ e_p / n), 1e-12)
             ld = float(np.sum(np.log(np.abs(1.0 - rho_p * eigenvalues))))
-            return -(ld - (n / 2.0) * np.log(2 * np.pi * s2) - n / 2.0)
+            return float(-(ld - (n / 2.0) * np.log(2 * np.pi * s2) - n / 2.0))
 
         eps_h = 1e-5
         H = _numerical_hessian(_full_ll_neg, params0, eps_h)
@@ -120,7 +122,7 @@ class SpatialLagModel:
         return np.asarray(spla.spsolve(A, rhs)).ravel()
 
     def residuals(self, y: np.ndarray, X: np.ndarray, W: sp.csr_matrix) -> np.ndarray:
-        return y - self.predict(X, W, y)
+        return np.asarray(y - self.predict(X, W, y))
 
     def summary(self) -> pd.DataFrame:
         names = ["rho"] + self._x_names
@@ -142,8 +144,10 @@ def _numerical_hessian(f, x0: np.ndarray, eps: float = 1e-5) -> np.ndarray:
     f0 = f(x0)
     for i in range(n):
         for j in range(i, n):
-            ei = np.zeros(n); ei[i] = eps
-            ej = np.zeros(n); ej[j] = eps
+            ei = np.zeros(n)
+            ei[i] = eps
+            ej = np.zeros(n)
+            ej[j] = eps
             if i == j:
                 H[i, i] = (f(x0 + ei) - 2 * f0 + f(x0 - ei)) / eps**2
             else:

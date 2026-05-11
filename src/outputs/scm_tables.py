@@ -25,7 +25,7 @@ def weights_table_latex(model_registry) -> str:
     acs = meta.get("acs", pd.DataFrame())
 
     rows = []
-    for name, w in zip(donor_names, weights):
+    for name, w in zip(donor_names, weights, strict=False):
         if w <= 0.01:
             continue
         income = ""
@@ -72,10 +72,7 @@ def rmspe_table_latex(model_registry) -> str:
         return ""
 
     # Identify minimum RMSPE ratio row
-    if "rmspe_ratio" in comp.columns:
-        min_ratio_idx = comp["rmspe_ratio"].idxmin()
-    else:
-        min_ratio_idx = -1
+    min_ratio_idx = comp["rmspe_ratio"].idxmin() if "rmspe_ratio" in comp.columns else -1
 
     rows = []
     for i, row in comp.iterrows():

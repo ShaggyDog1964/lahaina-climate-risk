@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.schemas import (
@@ -96,7 +96,7 @@ def get_lisa_counts() -> ClusterCountResponse:
     if db:
         try:
             df = db.query("SELECT cluster_label, count() as cnt FROM lisa_results GROUP BY cluster_label")
-            counts = dict(zip(df["cluster_label"], df["cnt"]))
+            counts = dict(zip(df["cluster_label"], df["cnt"], strict=False))
         except Exception as exc:
             logger.warning("ClickHouse query failed: %s", exc)
             counts = {}
