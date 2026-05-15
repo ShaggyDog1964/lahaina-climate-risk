@@ -11,10 +11,12 @@ logger = logging.getLogger(__name__)
 REDFIN_URL = "https://redfin-public-data.s3.us-west-2.amazonaws.com/redfin_market_tracker/neighborhood_market_tracker.tsv000.gz"
 CACHE_PATH = Path("data/raw/redfin/hawaii_neighborhoods.parquet")
 
+# Redfin TSV has ALL-CAPS column names; we normalize to lowercase on read.
 _KEEP_COLS = [
-    "region", "period_begin", "period_end",
+    "region", "city", "state", "state_code",
+    "period_begin", "period_end",
     "median_sale_price", "median_ppsf", "homes_sold",
-    "inventory", "days_on_market", "sale_to_list",
+    "inventory", "median_dom", "avg_sale_to_list",
 ]
 
 
@@ -52,10 +54,12 @@ def fetch_redfin_neighborhood(
             sep="\t",
             on_bad_lines="skip",
         ):
-            # Redfin TSV uses "state_or_province" with full names (e.g. "Hawaii")
-            if "state_or_province" not in chunk.columns:
+            # Redfin TSV has ALL-CAPS quoted headers; normalize to lowercase.
+            chunk.columns = chunk.columns.str.strip('"').str.lower()
+            # Values may also be quoted; the state column holds full names ("Hawaii").
+            if "state" not in chunk.columns:
                 continue
-            hi_mask = chunk["state_or_province"].str.strip().str.title() == state.strip().title()
+            hi_mask = chunk["state"].str.strip('"').str.strip().str.title() == state.strip().title()
             filtered = chunk[hi_mask]
             if not filtered.empty:
                 chunks.append(filtered)
