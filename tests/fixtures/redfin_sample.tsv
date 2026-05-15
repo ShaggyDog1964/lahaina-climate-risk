@@ -1,0 +1,5 @@
+state_or_province	region	period_begin	period_end	median_sale_price	median_ppsf	homes_sold	inventory	days_on_market	sale_to_list
+Hawaii	Lahaina	2023-01-01	2023-01-31	800000	500	10	20	30	0.99
+Hawaii	Honolulu	2023-02-01	2023-02-28	750000	480	25	40	18	0.98
+California	Los Angeles	2023-01-01	2023-01-31	1200000	700	50	100	15	1.02
+Washington	Seattle	2023-02-01	2023-02-28	900000	600	30	60	20	1.01

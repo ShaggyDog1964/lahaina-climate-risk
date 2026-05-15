@@ -52,7 +52,10 @@ def fetch_redfin_neighborhood(
             sep="\t",
             on_bad_lines="skip",
         ):
-            hi_mask = chunk.get("state_code", pd.Series(dtype=str)) == "HI"
+            # Redfin TSV uses "state_or_province" with full names (e.g. "Hawaii")
+            if "state_or_province" not in chunk.columns:
+                continue
+            hi_mask = chunk["state_or_province"].str.strip().str.title() == state.strip().title()
             filtered = chunk[hi_mask]
             if not filtered.empty:
                 chunks.append(filtered)

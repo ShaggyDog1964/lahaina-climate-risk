@@ -1,4 +1,6 @@
 .env
+.env.save
+.env.*
 __pycache__/
 *.pyc
 *.pyo
@@ -9,3 +11,15 @@ __pycache__/
 dist/
 build/
 .DS_Store
+# Snakemake
+.snakemake/
+logs/
+# Data — raw inputs and large outputs never committed
+data/raw/
+data/interim/
+data/final/
+data/processed/
+*.parquet
+*.pkl
+results/
+figures/
