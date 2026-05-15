@@ -101,3 +101,30 @@ def test_loo_stability_score_raises_before_run():
     loo = LeaveOneOutDiagnostic()
     with pytest.raises(RuntimeError):
         loo.stability_score()
+
+
+def test_loo_empty_active_donors_returns_gracefully():
+    """When no donors have weight > 0.05, LOO returns empty dict gracefully."""
+    from src.scm.adh_scm import ADHSyntheticControl
+    from src.inference.loo import LeaveOneOutDiagnostic
+
+    np.random.seed(42)
+    J = 25  # 25 donors -> uniform weight = 0.04 < 0.05
+    T0, T = 10, 20
+    Y0_all = np.random.normal(10, 1, (T, J))
+    Y1_all = np.random.normal(10, 1, T)
+    # Manually create a model with uniform low weights
+    model = ADHSyntheticControl()
+    model.w_ = np.ones(J) / J  # 0.04 each, all below 0.05
+    model.V_ = np.eye(1)
+    model.pre_rmspe_ = 0.1
+    model.converged_ = True
+
+    X0 = np.random.normal(0, 1, (2, J))
+    X1 = np.zeros(2)
+    loo = LeaveOneOutDiagnostic()
+    result = loo.run(
+        model, X0, X1, Y0_all[:T0], Y1_all[:T0], Y0_all, Y1_all,
+        [f"z{j}" for j in range(J)]
+    )
+    assert result["loo_gaps"] == {}

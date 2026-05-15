@@ -35,6 +35,7 @@ MOCK_GEOJSON = {
 def mock_nifc_response():
     """Mock successful NIFC ArcGIS endpoint response."""
     mock = MagicMock()
+    mock.status_code = 200
     mock.raise_for_status.return_value = None
     mock.json.return_value = MOCK_GEOJSON
     return mock

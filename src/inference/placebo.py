@@ -45,12 +45,19 @@ class InSpacePlacebo:
         all_zips = panel["zip_code"].unique().tolist()
         donor_zips = [z for z in all_zips if z != treated_zip]
 
+        if len(donor_zips) < 2:
+            raise ValueError(
+                f"Need >= 2 donors for placebo test, got {len(donor_zips)}. "
+                "Ensure DonorPool.build() has run and returned enough donors."
+            )
+
         results = Parallel(n_jobs=n_jobs, prefer="threads")(
             delayed(self._run_one)(z, panel, pre_end) for z in donor_zips
         )
         results = [r for r in results if r is not None]
 
         self.placebo_df = pd.DataFrame(results)
+        self._n_placebos_full_ = len(self.placebo_df)
         return self.placebo_df
 
     def _run_one(
@@ -120,6 +127,22 @@ class InSpacePlacebo:
             return 1.0
         rank = (self.placebo_df["rmspe_ratio"] >= treated_ratio).sum()
         return float(rank) / len(self.placebo_df)
+
+    def p_values(self) -> dict:
+        """Return dict with p_full and p_trimmed (if discard_poor_fit was called).
+
+        Returns:
+            Dict with keys: p_full, p_trimmed, n_placebos_full, n_placebos_trimmed.
+        """
+        if self.placebo_df is None:
+            raise RuntimeError("Call run() first.")
+        p_full = self.p_value(getattr(self, "_treated_ratio_cache_", 0.0))
+        return {
+            "p_full": getattr(self, "_p_value_full_", p_full),
+            "p_trimmed": getattr(self, "_p_value_trimmed_", None),
+            "n_placebos_full": getattr(self, "_n_placebos_full_", len(self.placebo_df)),
+            "n_placebos_trimmed": getattr(self, "_n_placebos_trimmed_", None),
+        }
 
     def discard_poor_fit(
         self, max_pre_rmspe_multiple: float = 2.0

@@ -48,9 +48,21 @@ class LeaveOneOutDiagnostic:
         loo_gaps: dict[str, np.ndarray] = {}
         pre_rmspes: dict[str, float] = {}
 
-        for j, name in enumerate(donor_names):
-            if scm.w_[j] <= 0.05:
-                continue
+        active = [(j, name) for j, name in enumerate(donor_names) if scm.w_[j] > 0.05]
+        if not active:
+            import logging
+            logging.getLogger(__name__).warning(
+                "No donors with weight > 0.05. LOO diagnostic not informative "
+                "(all weights near zero). Returning empty result."
+            )
+            self._result = {
+                "loo_gaps": {},
+                "base_gap": self._base_gap,
+                "pre_rmspes": {},
+            }
+            return self._result
+
+        for j, name in active:
 
             mask = np.ones(len(donor_names), dtype=bool)
             mask[j] = False

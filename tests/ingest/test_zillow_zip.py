@@ -66,6 +66,7 @@ def test_fetch_zhvi_caches(mock_zhvi_csv, tmp_path):
     from src.ingest.zillow_zip import fetch_zhvi_by_zip
 
     mock_resp = MagicMock()
+    mock_resp.status_code = 200
     mock_resp.content = mock_zhvi_csv.encode()
     mock_resp.raise_for_status.return_value = None
 
@@ -85,3 +86,16 @@ def test_fetch_zhvi_year_month_format(mock_zhvi_csv, tmp_path):
 
     df = fetch_zhvi_by_zip(state="HI", cache_dir=tmp_path)
     assert df["year_month"].str.match(r"^\d{4}-\d{2}$").all()
+
+
+def test_fetch_zhvi_zip_code_is_str(mock_zhvi_csv, tmp_path):
+    """zip_code is str dtype with 5 chars (regression for int64 CSV round-trip bug)."""
+    from src.ingest.zillow_zip import fetch_zhvi_by_zip
+
+    cache_csv = tmp_path / "zhvi_zip.csv"
+    cache_csv.write_text(mock_zhvi_csv)
+
+    df = fetch_zhvi_by_zip(state="HI", cache_dir=tmp_path)
+    assert pd.api.types.is_string_dtype(df["zip_code"])
+    assert df["zip_code"].str.len().eq(5).all()
+    assert df["zip_code"].str.match(r"^\d{5}$").all()

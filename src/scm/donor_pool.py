@@ -28,6 +28,21 @@ class DonorPool:
         pre_end: str = "2023-07",
     ) -> None:
         self.panel = panel.copy()
+        # Ensure zip_code is str — guard against int64 from CSV round-trip
+        if (
+            "zip_code" in self.panel.columns
+            and not pd.api.types.is_string_dtype(self.panel["zip_code"])
+        ):
+            import warnings
+            warnings.warn(
+                f"DonorPool received zip_code as {self.panel['zip_code'].dtype}, "
+                "expected str. Coercing to str. Run build_zip_panel with the latest "
+                "_coerce_zip_code fix to avoid this warning.",
+                stacklevel=2,
+            )
+            self.panel["zip_code"] = self.panel["zip_code"].astype(str).str.zfill(5)
+        if isinstance(treated_zip, int):
+            treated_zip = str(treated_zip).zfill(5)
         self.treated_zip = treated_zip
         self.pre_end = pre_end
         self._donors: list[str] | None = None

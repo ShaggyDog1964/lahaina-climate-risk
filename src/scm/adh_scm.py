@@ -21,6 +21,7 @@ class ADHSyntheticControl:
         self.pre_rmspe_: float | None = None
         self.post_rmspe_: float | None = None
         self._donor_names: list[str] | None = None
+        self.converged_: bool = False
 
     # ------------------------------------------------------------------
     # Core methods
@@ -101,6 +102,14 @@ class ADHSyntheticControl:
             options={"maxiter": 500, "ftol": 1e-12},
         )
 
+        self.converged_ = bool(result.success)
+        if not result.success:
+            import logging
+            logging.getLogger(__name__).warning(
+                "ADH outer optimization did not converge: %s. Using best found solution.",
+                result.message,
+            )
+
         v_diag = np.abs(result.x)
         v_sum = v_diag.sum()
         if v_sum < 1e-12:
@@ -146,7 +155,10 @@ class ADHSyntheticControl:
             "weights": weights,
             "pre_rmspe": self.pre_rmspe_,
             "post_rmspe": self.post_rmspe_,
-            "rmspe_ratio": self.post_rmspe_ / self.pre_rmspe_
-            if (self.post_rmspe_ and self.pre_rmspe_)
+            "rmspe_ratio": (self.post_rmspe_ / self.pre_rmspe_)
+            if (self.post_rmspe_ is not None and self.pre_rmspe_ is not None and self.pre_rmspe_ > 1e-12)
             else None,
+            "converged": self.converged_,
+            "n_donors": len(self.w_) if self.w_ is not None else 0,
+            "effective_donors": int((self.w_ > 0.01).sum()) if self.w_ is not None else 0,
         }

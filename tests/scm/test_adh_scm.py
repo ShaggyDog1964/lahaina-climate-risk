@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import pytest
 
@@ -122,3 +124,35 @@ def test_adh_treatment_effect_shape(synthetic_dgp):
     model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
     gap = model.treatment_effect(d["Y1_all"], d["Y0_all"])
     assert gap.shape == d["Y1_all"].shape
+
+
+@pytest.mark.parametrize("J,T0", [(5, 24), (10, 48)])
+def test_adh_runtime(J, T0):
+    """ADH fit completes within time limit."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    rng = np.random.default_rng(42)
+    Y0_pre = rng.normal(10, 1, (T0, J))
+    Y1_pre = Y0_pre[:, 0] * 0.6 + Y0_pre[:, 1] * 0.4 + rng.normal(0, 0.05, T0)
+    X0 = rng.normal(0, 1, (3, J))
+    X1 = X0[:, 0] * 0.6 + X0[:, 1] * 0.4
+    model = ADHSyntheticControl()
+    t0 = time.perf_counter()
+    model.fit(X0, X1, Y0_pre, Y1_pre)
+    elapsed = time.perf_counter() - t0
+    limit = {5: 10, 10: 20}[J]
+    assert elapsed < limit, f"ADH fit took {elapsed:.1f}s for J={J} (limit {limit}s)"
+
+
+def test_adh_summary_keys(synthetic_dgp):
+    """summary() returns dict with expected keys."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
+    s = model.summary()
+    assert "weights" in s
+    assert "pre_rmspe" in s
+    assert "post_rmspe" in s
+    assert "rmspe_ratio" in s

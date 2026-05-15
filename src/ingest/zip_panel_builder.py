@@ -5,10 +5,23 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from src.ingest.exceptions import DataValidationError
+
 LAHAINA_ZIP = "96761"
 TREATMENT_DATE = "2023-08"
 DATE_START = "2018-01"
 DATE_END = "2024-12"
+
+
+def _coerce_zip_code(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize zip_code to zero-padded 5-char string. Returns copy."""
+    if "zip_code" not in df.columns:
+        raise DataValidationError(
+            f"DataFrame missing 'zip_code' column. Got: {df.columns.tolist()}"
+        )
+    df = df.copy()
+    df["zip_code"] = df["zip_code"].astype(str).str.strip().str.zfill(5)
+    return df
 
 
 def build_zip_panel(
@@ -16,6 +29,8 @@ def build_zip_panel(
     acs: pd.DataFrame,
     hta: pd.DataFrame | None,
     output_path: str | None = None,
+    treated_zip: str = LAHAINA_ZIP,
+    fire_date: str = TREATMENT_DATE,
 ) -> pd.DataFrame:
     """Merge zip-level panel from ZHVI, ACS covariates, and optional HTA data.
 
@@ -24,11 +39,17 @@ def build_zip_panel(
         acs: DataFrame with [zip_code, median_hh_income, ...].
         hta: Optional HTA visitor DataFrame with [island, year_month, ...].
         output_path: If provided, save parquet to this path.
+        treated_zip: ZIP code of the treated unit (default: Lahaina 96761).
+        fire_date: Year-month string marking the treatment date (default: 2023-08).
 
     Returns:
         Panel DataFrame with [zip_code, year_month, zhvi, log_zhvi,
         treated, post, ...covariates].
     """
+    # Normalize zip_code to str dtype before any merge
+    zhvi = _coerce_zip_code(zhvi)
+    acs = _coerce_zip_code(acs) if acs is not None else acs
+
     # Filter to date range
     panel = zhvi.copy()
     panel = panel[
@@ -51,8 +72,8 @@ def build_zip_panel(
 
     # Derived columns
     panel["log_zhvi"] = np.log(panel["zhvi"].clip(lower=1e-6))
-    panel["treated"] = (panel["zip_code"] == LAHAINA_ZIP).astype(int)
-    panel["post"] = (panel["year_month"] >= TREATMENT_DATE).astype(int)
+    panel["treated"] = (panel["zip_code"] == str(treated_zip).zfill(5)).astype(int)
+    panel["post"] = (panel["year_month"] >= fire_date).astype(int)
 
     if output_path is not None:
         import pathlib

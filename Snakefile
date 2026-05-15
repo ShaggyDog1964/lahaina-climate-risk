@@ -317,6 +317,10 @@ rule phase2:
 rule fetch_zhvi:
     output:
         "data/raw/zillow/zhvi_zip.csv",
+    log:
+        "logs/phase2/fetch_zhvi.log",
+    benchmark:
+        "benchmarks/phase2/fetch_zhvi.benchmark.txt",
     shell:
         """
         python3 -c "
@@ -329,6 +333,10 @@ df.to_csv('{output}', index=False)
 rule fetch_acs:
     output:
         "data/raw/census/acs_zip_2022.parquet",
+    log:
+        "logs/phase2/fetch_acs.log",
+    benchmark:
+        "benchmarks/phase2/fetch_acs.benchmark.txt",
     shell:
         """
         python3 -c "
@@ -344,6 +352,10 @@ rule build_zip_panel:
         acs="data/raw/census/acs_zip_2022.parquet",
     output:
         "data/interim/zip_panel.parquet",
+    log:
+        "logs/phase2/build_zip_panel.log",
+    benchmark:
+        "benchmarks/phase2/build_zip_panel.benchmark.txt",
     shell:
         """
         python3 -c "
@@ -354,7 +366,8 @@ acs = pd.read_parquet('{input.acs}')
 hta = None
 panel = build_zip_panel(zhvi, acs, hta)
 panel.to_parquet('{output}', engine='pyarrow')
-"
+print(f'Panel shape: {{panel.shape}}, zip_code dtype: {{panel[\"zip_code\"].dtype}}')
+" 2>&1 | tee {log}
         """
 
 # ---------------------------------------------------------------------------
@@ -367,6 +380,10 @@ rule build_donor_pool:
     output:
         pool="data/interim/donor_pool.parquet",
         cov="data/interim/covariate_matrix.npz",
+    log:
+        "logs/phase2/build_donor_pool.log",
+    benchmark:
+        "benchmarks/phase2/build_donor_pool.benchmark.txt",
     shell:
         """
         python3 -c "
@@ -391,6 +408,10 @@ rule fit_adh_scm:
     output:
         pkl="results/scm/adh_results.pkl",
         gap="results/scm/adh_gap_series.parquet",
+    log:
+        "logs/phase2/fit_adh_scm.log",
+    benchmark:
+        "benchmarks/phase2/fit_adh_scm.benchmark.txt",
     shell:
         """
         python3 -c "
@@ -419,6 +440,10 @@ rule fit_gsynth:
     output:
         pkl="results/scm/gsynth_results.pkl",
         gap="results/scm/gsynth_gap_series.parquet",
+    log:
+        "logs/phase2/fit_gsynth.log",
+    benchmark:
+        "benchmarks/phase2/fit_gsynth.benchmark.txt",
     shell:
         """
         python3 -c "
@@ -441,6 +466,10 @@ rule fit_augsynth:
     output:
         pkl="results/scm/augsynth_results.pkl",
         gap="results/scm/augsynth_gap_series.parquet",
+    log:
+        "logs/phase2/fit_augsynth.log",
+    benchmark:
+        "benchmarks/phase2/fit_augsynth.benchmark.txt",
     shell:
         """
         python3 -c "

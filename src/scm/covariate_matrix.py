@@ -43,12 +43,19 @@ def build_covariate_matrix(
         trend = float(reg.coef_[0])
 
         acs_row = acs[acs["zip_code"] == zip_code]
-        med_income = float(acs_row["median_hh_income"].iloc[0]) if len(acs_row) else 0.0
-        med_value = float(acs_row["median_home_value"].iloc[0]) if len(acs_row) else 0.0
-        owner = float(acs_row["owner_occupied_units"].iloc[0]) if len(acs_row) else 0.0
-        renter = float(acs_row["renter_occupied_units"].iloc[0]) if len(acs_row) else 0.0
-        workers = float(acs_row["total_workers"].iloc[0]) if len(acs_row) else 0.0
-        pop = float(acs_row["total_population"].iloc[0]) if len(acs_row) else 1.0
+        CENSUS_NULL_SENTINEL = -666666666
+        if len(acs_row) > 0:
+            for _col in ["median_hh_income", "median_home_value", "total_population",
+                         "owner_occupied_units", "renter_occupied_units", "total_workers"]:
+                if _col in acs_row.columns:
+                    acs_row = acs_row.copy()
+                    acs_row[_col] = acs_row[_col].replace(CENSUS_NULL_SENTINEL, float("nan"))
+        med_income = float(acs_row["median_hh_income"].iloc[0]) if len(acs_row) and not pd.isna(acs_row["median_hh_income"].iloc[0]) else 0.0
+        med_value = float(acs_row["median_home_value"].iloc[0]) if len(acs_row) and not pd.isna(acs_row["median_home_value"].iloc[0]) else 0.0
+        owner = float(acs_row["owner_occupied_units"].iloc[0]) if len(acs_row) and not pd.isna(acs_row["owner_occupied_units"].iloc[0]) else 0.0
+        renter = float(acs_row["renter_occupied_units"].iloc[0]) if len(acs_row) and not pd.isna(acs_row["renter_occupied_units"].iloc[0]) else 0.0
+        workers = float(acs_row["total_workers"].iloc[0]) if len(acs_row) and not pd.isna(acs_row["total_workers"].iloc[0]) else 0.0
+        pop = float(acs_row["total_population"].iloc[0]) if len(acs_row) and not pd.isna(acs_row["total_population"].iloc[0]) else 1.0
 
         ownership = owner / max(owner + renter, 1.0)
         labor = workers / max(pop, 1.0)

@@ -33,6 +33,7 @@ def test_fetch_series_shape_and_dtypes(fred_json_response, mock_env, tmp_path):
     from src.ingest.fred import fetch_series
 
     mock_response = MagicMock()
+    mock_response.status_code = 200
     mock_response.json.return_value = fred_json_response
     mock_response.raise_for_status.return_value = None
 
@@ -76,6 +77,7 @@ def test_fetch_series_caches_to_disk(fred_json_response, mock_env, tmp_path):
     from src.ingest.fred import fetch_series
 
     mock_response = MagicMock()
+    mock_response.status_code = 200
     mock_response.json.return_value = fred_json_response
     mock_response.raise_for_status.return_value = None
 
@@ -93,6 +95,7 @@ def test_fetch_multiple_series(mock_env, tmp_path):
 
     def side_effect(url, params, timeout):
         mock = MagicMock()
+        mock.status_code = 200
         mock.raise_for_status.return_value = None
         mock.json.return_value = {
             "observations": [{"date": "2023-01-01", "value": "1.0"}]

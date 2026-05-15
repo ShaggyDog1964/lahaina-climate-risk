@@ -83,3 +83,26 @@ def test_discard_poor_fit_reduces_or_equal(placebo_panel):
     p_discarded = placebo.p_value(ratio)
     # Result must be a valid probability
     assert 0.0 <= p_discarded <= 1.0
+
+
+def test_placebo_empty_donor_pool_raises():
+    """Fewer than 2 donors raises ValueError."""
+    from src.scm.adh_scm import ADHSyntheticControl
+    from src.scm.donor_pool import DonorPool
+    from src.inference.placebo import InSpacePlacebo
+    import pandas as pd
+
+    np.random.seed(42)
+    # Panel with only treated + 1 donor = too few for placebo
+    rows = []
+    for z in ["96761", "96762"]:
+        for m in ["2021-01", "2021-02", "2021-03"]:
+            rows.append({"zip_code": z, "year_month": m, "log_zhvi": 12.0 + np.random.normal(0, 0.01)})
+    panel = pd.DataFrame(rows)
+    dp = DonorPool(panel, treated_zip="96761", pre_end="2021-02")
+    dp._donors = ["96762"]
+    dp._donor_panel = panel
+
+    placebo = InSpacePlacebo(ADHSyntheticControl, dp, None)
+    with pytest.raises(ValueError, match=">="):
+        placebo.run(n_jobs=1)
