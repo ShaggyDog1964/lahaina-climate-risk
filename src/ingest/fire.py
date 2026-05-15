@@ -42,6 +42,10 @@ def load_fire_perimeter(source: str = "nifc") -> gpd.GeoDataFrame:
         gdf = gpd.read_file(str(CACHE_PATH))
     else:
         resp = requests.get(NIFC_URL, params=NIFC_PARAMS, timeout=60)
+        if resp.status_code != 200:
+            raise ValueError(
+                f"HTTP {resp.status_code} from {resp.url}: {resp.text[:400]}"
+            )
         resp.raise_for_status()
         geojson_data = resp.json()
         CACHE_PATH.write_text(json.dumps(geojson_data))

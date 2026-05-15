@@ -29,6 +29,10 @@ def fetch_zhvi_by_zip(state: str = "HI", cache_dir: Path | None = None) -> pd.Da
 
     if not cache_path.exists():
         resp = requests.get(ZHVI_URL, timeout=120)
+        if resp.status_code != 200:
+            raise ValueError(
+                f"HTTP {resp.status_code} from {resp.url}: {resp.text[:400]}"
+            )
         resp.raise_for_status()
         cache_path.write_bytes(resp.content)
 

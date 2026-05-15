@@ -51,12 +51,12 @@ rule fetch_fred:
         "data/raw/fred/series.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 from dotenv import load_dotenv; load_dotenv()
 from src.ingest.fred import fetch_series
 import pandas as pd
 df = fetch_series(
-    ['MEHOINUSHAWIA672N','HISTHPI','CSUSHPINSA','UNRATE','FEDFUNDS','MORTGAGE30US'],
+    ['MEHOINUSHIA672N','HISTHPI','CSUSHPINSA','UNRATE','FEDFUNDS','MORTGAGE30US'],
     start='2019-01-01', end='2024-12-31'
 )
 df.to_parquet('{output}', engine='pyarrow')
@@ -70,7 +70,7 @@ rule fetch_redfin:
         "logs/fetch_redfin.log",
     shell:
         """
-        python -c "
+        python3 -c "
 from src.ingest.redfin import fetch_redfin_neighborhood
 fetch_redfin_neighborhood()
 " 2>&1 | tee {log}
@@ -83,7 +83,7 @@ rule fetch_fhfa_zip:
         "logs/fetch_fhfa_zip.log",
     shell:
         """
-        python -c "
+        python3 -c "
 from src.ingest.fred import fetch_fhfa_zip_hpi
 fetch_fhfa_zip_hpi()
 " 2>&1 | tee {log}
@@ -94,7 +94,7 @@ rule fetch_fire:
         "data/raw/fire/lahaina_perimeter.geojson",
     shell:
         """
-        python -c "
+        python3 -c "
 from src.ingest.fire import load_fire_perimeter
 gdf = load_fire_perimeter()
 gdf.to_file('{output}', driver='GeoJSON')
@@ -108,7 +108,7 @@ rule load_parcels:
         "data/interim/parcels_clean.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 from src.ingest.parcel import load_maui_parcels
 gdf = load_maui_parcels('{input}')
 gdf.drop(columns='geometry').to_parquet('{output}', engine='pyarrow')
@@ -123,7 +123,7 @@ rule join_wui:
         "data/interim/parcels_wui.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import geopandas as gpd, pandas as pd
 from src.ingest.wui import load_wui
 parcels = pd.read_parquet('{input.parcels}')
@@ -144,7 +144,7 @@ rule build_h3:
         "data/interim/parcels_h3.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import geopandas as gpd, pandas as pd
 from src.spatial.h3_grid import assign_h3
 df = pd.read_parquet('{input}')
@@ -162,7 +162,7 @@ rule assign_bands:
         "data/interim/parcels_bands.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import geopandas as gpd, pandas as pd
 from src.spatial.distance_bands import assign_distance_bands
 df = pd.read_parquet('{input.parcels}')
@@ -182,7 +182,7 @@ rule build_weights:
         idw="data/interim/weights_idw.gal",
     shell:
         """
-        python -c "
+        python3 -c "
 import geopandas as gpd, pandas as pd
 from src.spatial.weights import build_weights, build_inverse_distance_weights
 df = pd.read_parquet('{input}')
@@ -200,7 +200,7 @@ rule build_panel:
         "data/final/panel.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import geopandas as gpd, pandas as pd
 from src.spatial.panel_builder import build_panel
 parcels = pd.read_parquet('{input.parcels}')
@@ -222,7 +222,7 @@ rule run_hedonic:
         csv="results/hedonic_table.csv",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, pickle
 from src.models.hedonic import HedonicModel
 panel = pd.read_parquet('{input}')
@@ -241,7 +241,7 @@ rule run_did_cs:
         csv="results/event_study.csv",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, pickle
 from src.models.did_cs import CallawayAntaCSiD
 panel = pd.read_parquet('{input}')
@@ -260,7 +260,7 @@ rule run_triple_diff:
         csv="results/decomposition.csv",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, pickle
 from src.models.triple_diff import TripleDifference
 panel = pd.read_parquet('{input}')
@@ -279,7 +279,7 @@ rule test_parallel:
         pdf="figures/event_study.pdf",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, json
 from src.models.parallel_trends import test_parallel_trends, plot_event_study
 es = pd.read_csv('{input}')
@@ -319,7 +319,7 @@ rule fetch_zhvi:
         "data/raw/zillow/zhvi_zip.csv",
     shell:
         """
-        python -c "
+        python3 -c "
 from src.ingest.zillow_zip import fetch_zhvi_by_zip
 df = fetch_zhvi_by_zip('HI')
 df.to_csv('{output}', index=False)
@@ -331,7 +331,7 @@ rule fetch_acs:
         "data/raw/census/acs_zip_2022.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 from src.ingest.census_acs import fetch_acs_zip
 df = fetch_acs_zip(year=2022)
 df.to_parquet('{output}', engine='pyarrow')
@@ -346,7 +346,7 @@ rule build_zip_panel:
         "data/interim/zip_panel.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd
 from src.ingest.zip_panel_builder import build_zip_panel
 zhvi = pd.read_csv('{input.zhvi}')
@@ -369,7 +369,7 @@ rule build_donor_pool:
         cov="data/interim/covariate_matrix.npz",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np
 from src.scm.donor_pool import DonorPool
 from src.scm.covariate_matrix import build_covariate_matrix, build_outcome_matrices
@@ -393,7 +393,7 @@ rule fit_adh_scm:
         gap="results/scm/adh_gap_series.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle
 from src.scm.adh_scm import ADHSyntheticControl
 from src.scm.donor_pool import DonorPool
@@ -407,7 +407,7 @@ dp.pre_end = '2023-07'
 model = ADHSyntheticControl()
 model.fit(X0, X1, Y0_pre, Y1_pre)
 with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
-gap = pd.DataFrame({'gap': model.treatment_effect(Y1_pre, Y0_pre)})
+gap = pd.DataFrame({{'gap': model.treatment_effect(Y1_pre, Y0_pre)}})
 gap.to_parquet('{output.gap}', engine='pyarrow')
 "
         """
@@ -421,7 +421,7 @@ rule fit_gsynth:
         gap="results/scm/gsynth_gap_series.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle
 from src.scm.gsynth import GeneralizedSyntheticControl
 data = np.load('{input.cov}', allow_pickle=True)
@@ -429,7 +429,7 @@ Y0_pre, Y1_pre = data['Y0_pre'], data['Y1_pre']
 model = GeneralizedSyntheticControl()
 model.fit(Y0_pre, Y1_pre, Y0_pre, Y1_pre, r=2)
 with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
-gap = pd.DataFrame({'gap': model.treatment_effect(Y1_pre)})
+gap = pd.DataFrame({{'gap': model.treatment_effect(Y1_pre)}})
 gap.to_parquet('{output.gap}', engine='pyarrow')
 "
         """
@@ -443,7 +443,7 @@ rule fit_augsynth:
         gap="results/scm/augsynth_gap_series.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle
 from src.scm.augsynth import AugmentedSyntheticControl
 data = np.load('{input.cov}', allow_pickle=True)
@@ -452,7 +452,7 @@ with open('{input.adh}', 'rb') as f: adh = pickle.load(f)
 model = AugmentedSyntheticControl()
 model.fit(adh.w_, Y0_pre, Y1_pre, Y0_pre, Y1_pre)
 with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
-gap = pd.DataFrame({'gap': model.treatment_effect()})
+gap = pd.DataFrame({{'gap': model.treatment_effect()}})
 gap.to_parquet('{output.gap}', engine='pyarrow')
 "
         """
@@ -466,7 +466,7 @@ rule compare_scms:
         "results/scm/model_comparison.csv",
     shell:
         """
-        python -c "
+        python3 -c "
 import pickle
 from src.scm.model_registry import ModelRegistry
 reg = ModelRegistry()
@@ -493,7 +493,7 @@ rule run_placebos:
         pvals="results/inference/p_values.json",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle, json
 from src.scm.donor_pool import DonorPool
 from src.scm.adh_scm import ADHSyntheticControl
@@ -524,7 +524,7 @@ rule run_loo:
         score="results/inference/stability_score.json",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle, json
 from src.inference.loo import LeaveOneOutDiagnostic
 from src.scm.donor_pool import DonorPool
@@ -570,7 +570,7 @@ rule build_spatial_outcome:
         "data/interim/spatial/price_change.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd
 from src.spatial_models.outcome import build_price_change
 panel = pd.read_parquet('{input.panel}')
@@ -591,7 +591,7 @@ rule build_weights_phase3:
         eigs="data/interim/spatial/eigenvalues_knn.npy",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, geopandas as gpd, pickle, numpy as np
 from src.spatial.weights_phase3 import SpatialWeightsFactory
 df = pd.read_parquet('{input}')
@@ -617,7 +617,7 @@ rule global_morans:
         "results/esda/global_morans.json",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, geopandas as gpd, pickle, json, numpy as np
 from src.esda.morans import GlobalMoransI
 from src.spatial.weights_phase3 import SpatialWeightsFactory
@@ -641,7 +641,7 @@ rule local_morans:
         labels="results/esda/cluster_labels.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, geopandas as gpd, pickle, numpy as np
 from src.esda.lisa import LocalMoransI
 from src.spatial.weights_phase3 import SpatialWeightsFactory
@@ -670,7 +670,7 @@ rule fit_sar:
         "results/spatial/sar_results.pkl",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle
 from src.spatial_models.sar import SpatialLagModel
 from src.spatial.weights_phase3 import SpatialWeightsFactory
@@ -696,7 +696,7 @@ rule fit_sem:
         "results/spatial/sem_results.pkl",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle
 from src.spatial_models.sem import SpatialErrorModel
 from src.spatial.weights_phase3 import SpatialWeightsFactory
@@ -723,7 +723,7 @@ rule fit_sdm:
         "results/spatial/sdm_results.pkl",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, numpy as np, pickle
 from src.spatial_models.sdm import SpatialDurbinModel
 from src.spatial.weights_phase3 import SpatialWeightsFactory
@@ -749,7 +749,7 @@ rule lesage_pace:
         "results/spatial/lesage_pace_effects.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pickle
 from src.spatial_models.effects import LeSagePaceEffects
 from src.spatial.weights_phase3 import SpatialWeightsFactory
@@ -771,7 +771,7 @@ rule nesting_tests:
         "results/spatial/nesting_tests.json",
     shell:
         """
-        python -c "
+        python3 -c "
 import pickle, json
 from src.spatial_models.model_registry import SpatialModelRegistry
 with open('{input.sar}', 'rb') as f: sar = pickle.load(f)
@@ -800,7 +800,7 @@ rule gwr_bandwidth:
         checkpoint="data/interim/spatial/bw_checkpoint.pkl",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, geopandas as gpd, json, numpy as np
 from src.gwr.bandwidth import BandwidthSelector
 df = pd.read_parquet('{input}')
@@ -822,7 +822,7 @@ rule fit_gwr:
         "results/gwr/gwr_surface.parquet",
     shell:
         """
-        python -c "
+        python3 -c "
 import pandas as pd, geopandas as gpd, json, numpy as np
 from src.gwr.gwr_model import GeographicallyWeightedRegression
 df = pd.read_parquet('{input.price}')

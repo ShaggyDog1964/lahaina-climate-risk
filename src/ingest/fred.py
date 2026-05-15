@@ -14,7 +14,7 @@ load_dotenv()
 
 FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
 DEFAULT_SERIES = [
-    "MEHOINUSHAWIA672N",
+    "MEHOINUSHIA672N",
     "HISTHPI",
     "CSUSHPINSA",
     "UNRATE",
@@ -69,6 +69,10 @@ def fetch_series(
                 },
                 timeout=30,
             )
+            if resp.status_code != 200:
+                raise ValueError(
+                    f"HTTP {resp.status_code} from {resp.url}: {resp.text[:400]}"
+                )
             resp.raise_for_status()
             raw = resp.json()
             cache_file.write_text(json.dumps(raw))
@@ -85,7 +89,7 @@ def fetch_series(
     return result
 
 
-FHFA_ZIP_URL = "https://www.fhfa.gov/DataTools/Downloads/Documents/HPI/HPI_AT_BDL_ZIP5.xlsx"
+FHFA_ZIP_URL = "https://www.fhfa.gov/document/d/hpi/hpi_at_bdl_zip5.xlsx"
 FHFA_CACHE = Path("data/raw/fhfa/hpi_zip.parquet")
 
 # Hawaii ZIP prefixes
@@ -102,7 +106,7 @@ def fetch_fhfa_zip_hpi(
     """Fetch FHFA House Price Index at ZIP code level.
 
     DATA SOURCE: Federal Housing Finance Agency All-Transactions HPI by ZIP
-    URL: https://www.fhfa.gov/DataTools/Downloads/Documents/HPI/HPI_AT_BDL_ZIP5.xlsx
+    URL: https://www.fhfa.gov/document/d/hpi/hpi_at_bdl_zip5.xlsx
 
     Args:
         output_dir: Directory for cached parquet.
@@ -118,7 +122,7 @@ def fetch_fhfa_zip_hpi(
         return pd.read_parquet(cache)
 
     try:
-        df = pd.read_excel(url, sheet_name=0, dtype={"ZIP5": str})
+        df = pd.read_excel(url, sheet_name=0, skiprows=6, dtype=str)
     except Exception as exc:
         raise NotImplementedError(
             f"FHFA ZIP HPI download failed: {exc}. "
@@ -126,23 +130,27 @@ def fetch_fhfa_zip_hpi(
         ) from exc
 
     # Normalize column names
-    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+    df.columns = [c.strip().lower().replace(" ", "_").replace("(", "").replace(")", "").replace("%", "pct") for c in df.columns]
 
-    # Find the ZIP5, year, quarter, index columns
+    # Current file columns (annual format, skiprows=6):
+    # "five-digit_zip_code", "year", "annual_change_pct", "hpi",
+    # "hpi_with_1990_base", "hpi_with_2000_base"
     zip_col = next((c for c in df.columns if "zip" in c), None)
-    yr_col = next((c for c in df.columns if "yr" in c or "year" in c), None)
-    qtr_col = next((c for c in df.columns if "qtr" in c or "quarter" in c), None)
-    idx_col = next((c for c in df.columns if "index" in c and "nsa" in c), None)
+    yr_col = next((c for c in df.columns if c == "year" or c.startswith("yr")), None)
+    # Prefer the plain "hpi" column (base=100 when first recorded)
+    idx_col = next((c for c in df.columns if c == "hpi"), None) or \
+              next((c for c in df.columns if "hpi" in c), None)
 
-    if not all([zip_col, yr_col, qtr_col, idx_col]):
+    if not all([zip_col, yr_col, idx_col]):
         raise ValueError(
             f"Could not identify required columns in FHFA data. Found: {list(df.columns)}"
         )
 
-    df = df.rename(
-        columns={zip_col: "ZIP5", yr_col: "yr", qtr_col: "qtr", idx_col: "index_nsa"}
-    )
-    df["ZIP5"] = df["ZIP5"].astype(str).str.zfill(5)
+    df = df.rename(columns={zip_col: "ZIP5", yr_col: "yr", idx_col: "index_nsa"})
+    df["ZIP5"] = df["ZIP5"].astype(str).str.strip().str.zfill(5)
+    df["yr"] = pd.to_numeric(df["yr"], errors="coerce")
+    df["index_nsa"] = pd.to_numeric(df["index_nsa"], errors="coerce")
+    df = df.dropna(subset=["ZIP5", "yr", "index_nsa"])
 
     # Filter to Hawaii
     hi_mask = df["ZIP5"].str.startswith(_HI_PREFIXES)
@@ -151,11 +159,9 @@ def fetch_fhfa_zip_hpi(
     if df.empty:
         raise ValueError("No Hawaii ZIP codes found in FHFA data.")
 
-    # Derive year_month
-    df["qtr"] = df["qtr"].astype(str)
-    df["year_month"] = (
-        df["yr"].astype(str) + "-" + df["qtr"].map(_QTR_TO_MONTH).fillna("01")
-    )
+    # Annual data — assign to Q1 of each year for year_month compatibility
+    df["qtr"] = "1"
+    df["year_month"] = df["yr"].astype(int).astype(str) + "-01"
 
     cache.parent.mkdir(parents=True, exist_ok=True)
     df[["ZIP5", "yr", "qtr", "index_nsa", "year_month"]].to_parquet(cache, engine="pyarrow")
