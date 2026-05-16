@@ -111,7 +111,7 @@ def test_adh_rmspe_ratio_gt_one_with_effect(synthetic_dgp):
     d = synthetic_dgp
     model = ADHSyntheticControl()
     model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
-    post_r = model.post_rmspe(d["Y1_post"], d["Y0_post"])
+    model.post_rmspe(d["Y1_post"], d["Y0_post"])
     assert model.rmspe_ratio() > 1.0
 
 
@@ -156,3 +156,95 @@ def test_adh_summary_keys(synthetic_dgp):
     assert "pre_rmspe" in s
     assert "post_rmspe" in s
     assert "rmspe_ratio" in s
+
+
+def test_rmspe_ratio_raises_before_post_rmspe(synthetic_dgp):
+    """rmspe_ratio() raises RuntimeError when post_rmspe_ is None."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
+    assert not model.is_post_fitted
+    with pytest.raises(RuntimeError, match="post_rmspe_"):
+        model.rmspe_ratio()
+
+
+def test_rmspe_ratio_works_after_explicit_post_rmspe(synthetic_dgp):
+    """rmspe_ratio() works after calling post_rmspe() explicitly."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
+    model.post_rmspe(d["Y1_post"], d["Y0_post"])
+    assert model.is_post_fitted
+    ratio = model.rmspe_ratio()
+    assert ratio > 0
+
+
+def test_rmspe_ratio_works_when_all_data_passed_to_fit(synthetic_dgp):
+    """rmspe_ratio() works when Y0_all/Y1_all passed to fit()."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"],
+              Y0_all=d["Y0_all"], Y1_all=d["Y1_all"])
+    assert model.is_post_fitted
+    ratio = model.rmspe_ratio()
+    assert ratio > 0
+
+
+def test_rmspe_ratio_survives_pickle_roundtrip(synthetic_dgp):
+    """Pickle round-trip preserves is_post_fitted and rmspe_ratio()."""
+    import io
+    import pickle
+
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"],
+              Y0_all=d["Y0_all"], Y1_all=d["Y1_all"])
+    buf = io.BytesIO()
+    pickle.dump(model, buf)
+    buf.seek(0)
+    loaded = pickle.load(buf)
+    assert loaded.is_post_fitted
+    assert loaded.rmspe_ratio() > 0
+
+
+def test_post_rmspe_idempotent(synthetic_dgp):
+    """Calling post_rmspe() twice gives the same result."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
+    r1 = model.post_rmspe(d["Y1_post"], d["Y0_post"])
+    r2 = model.post_rmspe(d["Y1_post"], d["Y0_post"])
+    assert abs(r1 - r2) < 1e-12
+
+
+def test_is_post_fitted_flag(synthetic_dgp):
+    """is_post_fitted is False before post_rmspe(), True after."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"])
+    assert not model.is_post_fitted
+    model.post_rmspe(d["Y1_post"], d["Y0_post"])
+    assert model.is_post_fitted
+
+
+def test_rmspe_ratio_greater_than_one_for_known_treatment(synthetic_dgp):
+    """rmspe_ratio > 1 when treatment effect of 0.15 is injected post-T0."""
+    from src.scm.adh_scm import ADHSyntheticControl
+
+    d = synthetic_dgp
+    model = ADHSyntheticControl()
+    model.fit(d["X0"], d["X1"], d["Y0_pre"], d["Y1_pre"],
+              Y0_all=d["Y0_all"], Y1_all=d["Y1_all"])
+    assert model.rmspe_ratio() > 1.0

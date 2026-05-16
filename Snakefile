@@ -425,10 +425,14 @@ dp = DonorPool.__new__(DonorPool)
 dp._donor_panel = pool
 dp.treated_zip = '96761'
 dp.pre_end = '2023-07'
+pivot = pool.pivot(index='year_month', columns='zip_code', values='log_zhvi').sort_index()
+donor_cols = [c for c in pivot.columns if c != '96761']
+Y0_all = pivot[donor_cols].values
+Y1_all = pivot['96761'].values
 model = ADHSyntheticControl()
-model.fit(X0, X1, Y0_pre, Y1_pre)
+model.fit(X0, X1, Y0_pre, Y1_pre, Y0_all=Y0_all, Y1_all=Y1_all)
 with open('{output.pkl}', 'wb') as f: pickle.dump(model, f)
-gap = pd.DataFrame({{'gap': model.treatment_effect(Y1_pre, Y0_pre)}})
+gap = pd.DataFrame({{'gap': model.treatment_effect(Y1_all, Y0_all)}})
 gap.to_parquet('{output.gap}', engine='pyarrow')
 "
         """
@@ -538,8 +542,12 @@ dp.pre_end = '2023-07'
 placebo = InSpacePlacebo(ADHSyntheticControl, dp, build_covariate_matrix)
 result_df = placebo.run(n_jobs=1)
 result_df.to_parquet('{output.dist}', engine='pyarrow')
-p = placebo.p_value(adh.rmspe_ratio())
-with open('{output.pvals}', 'w') as f: json.dump({{'p_value': p, 'rmspe_ratio': adh.rmspe_ratio()}}, f, indent=2)
+if not adh.is_post_fitted:
+    raise RuntimeError('Stale pickle: post_rmspe_ is None. Delete results/scm/adh_results.pkl and re-run fit_adh_scm.')
+ratio = adh.rmspe_ratio()
+p = placebo.p_value(ratio)
+with open('{output.pvals}', 'w') as f:
+    json.dump({{'p_value': p, 'rmspe_ratio': ratio, 'pre_rmspe': adh.pre_rmspe_, 'post_rmspe': adh.post_rmspe_}}, f, indent=2)
 "
         """
 

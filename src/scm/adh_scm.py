@@ -22,6 +22,8 @@ class ADHSyntheticControl:
         self.post_rmspe_: float | None = None
         self._donor_names: list[str] | None = None
         self.converged_: bool = False
+        self._T0_: int | None = None
+        self.rmspe_ratio_: float | None = None
 
     # ------------------------------------------------------------------
     # Core methods
@@ -76,6 +78,8 @@ class ADHSyntheticControl:
         Y0_pre: np.ndarray,
         Y1_pre: np.ndarray,
         donor_names: list[str] | None = None,
+        Y0_all: np.ndarray | None = None,
+        Y1_all: np.ndarray | None = None,
     ) -> ADHSyntheticControl:
         """Fit ADH synthetic control.
 
@@ -119,8 +123,28 @@ class ADHSyntheticControl:
 
         self.w_ = self._inner_qp(X0, X1, self.V_)
         self.pre_rmspe_ = float(np.sqrt(np.mean((Y1_pre - Y0_pre @ self.w_) ** 2)))
+        self._T0_ = Y0_pre.shape[0]
         self._donor_names = donor_names
+        if Y0_all is not None and Y1_all is not None:
+            self._compute_post_rmspe(Y0_all, Y1_all)
         return self
+
+    def _compute_post_rmspe(self, Y0_all: np.ndarray, Y1_all: np.ndarray) -> None:
+        """Compute and cache post-RMSPE from full series; idempotent."""
+        if self._T0_ is None or self.w_ is None:
+            raise RuntimeError("fit() must be called before _compute_post_rmspe().")
+        Y0_post = Y0_all[self._T0_:]
+        Y1_post = Y1_all[self._T0_:]
+        self.post_rmspe_ = float(np.sqrt(np.mean((Y1_post - Y0_post @ self.w_) ** 2)))
+        if self.pre_rmspe_ is not None and self.pre_rmspe_ > 1e-12:
+            self.rmspe_ratio_ = self.post_rmspe_ / self.pre_rmspe_
+        else:
+            self.rmspe_ratio_ = float("inf")
+
+    @property
+    def is_post_fitted(self) -> bool:
+        """True if post_rmspe_ has been computed and rmspe_ratio() will not raise."""
+        return self.post_rmspe_ is not None
 
     def predict(self, Y0_all: np.ndarray) -> np.ndarray:
         """Synthetic control series: Y0_all @ w_."""
@@ -136,12 +160,21 @@ class ADHSyntheticControl:
         """RMSPE over post-treatment period."""
         val = float(np.sqrt(np.mean((Y1_post - Y0_post @ self.w_) ** 2)))
         self.post_rmspe_ = val
+        if self.pre_rmspe_ is not None and self.pre_rmspe_ > 1e-12:
+            self.rmspe_ratio_ = val / self.pre_rmspe_
+        else:
+            self.rmspe_ratio_ = float("inf")
         return val
 
     def rmspe_ratio(self) -> float:
         """Ratio of post-RMSPE to pre-RMSPE."""
+        if self.rmspe_ratio_ is not None:
+            return self.rmspe_ratio_
         if self.post_rmspe_ is None or self.pre_rmspe_ is None:
-            raise RuntimeError("Call post_rmspe() before rmspe_ratio().")
+            raise RuntimeError(
+                "post_rmspe_ has not been computed. Either call post_rmspe(Y1_post, Y0_post) "
+                "explicitly, or pass Y0_all and Y1_all to fit()."
+            )
         if self.pre_rmspe_ < 1e-12:
             return float("inf")
         return self.post_rmspe_ / self.pre_rmspe_
