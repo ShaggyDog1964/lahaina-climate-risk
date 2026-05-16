@@ -605,15 +605,33 @@ rule build_spatial_outcome:
         panel="data/final/panel.parquet",
     output:
         "data/interim/spatial/price_change.parquet",
+    log:
+        "logs/phase3/build_spatial_outcome.log",
+    benchmark:
+        "benchmarks/phase3/build_spatial_outcome.benchmark.txt",
     shell:
         """
         python3 -c "
 import pandas as pd
+import geopandas as gpd
+from pathlib import Path
 from src.spatial_models.outcome import build_price_change
+
 panel = pd.read_parquet('{input.panel}')
+print('Panel columns:', panel.columns.tolist())
+print('Panel shape:', panel.shape)
+
 gdf = build_price_change(panel)
-gdf.drop(columns='geometry').to_parquet('{output}', engine='pyarrow')
-"
+print('GDF shape:', gdf.shape)
+print('GDF columns:', gdf.columns.tolist())
+print('y_raw stats: mean={{:.4f}} std={{:.4f}}'.format(gdf['y_raw'].mean(), gdf['y_raw'].std()))
+
+Path('{output}').parent.mkdir(parents=True, exist_ok=True)
+
+df_out = gdf.drop(columns='geometry') if 'geometry' in gdf.columns else gdf
+df_out.to_parquet('{output}', engine='pyarrow')
+print('Written:', '{output}', 'rows:', len(df_out))
+" 2>&1 | tee {log}
         """
 
 # ---------------------------------------------------------------------------
