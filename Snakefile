@@ -791,7 +791,7 @@ y = df['y_raw'].fillna(0).values
 X_cols = [c for c in ['dist_to_fire_km'] if c in df.columns]
 X = np.column_stack([np.ones(len(df))] + [df[c].fillna(0).values for c in X_cols])
 X_names = ['intercept'] + X_cols
-model = SpatialDurbinModel().fit(y, X, W_sparse, eigs, X_names=X_names)
+model = SpatialDurbinModel().fit(y, X, W_sparse, eigs, x_names=X_names)
 with open('{output}', 'wb') as f: pickle.dump(model, f)
 "
         """

@@ -78,3 +78,62 @@ def test_sdm_summary_rows():
     df = model.summary()
     # rho + 2 betas + 1 WX theta
     assert len(df) >= 3
+
+
+# ── Keyword argument regression tests ─────────────────────────────────────────
+
+def test_fit_accepts_lowercase_x_names():
+    """Primary regression: x_names (lowercase) must be accepted without error."""
+    from src.spatial_models.sdm import SpatialDurbinModel
+    y, X, W, eigs, names = make_sdm_dgp()
+    model = SpatialDurbinModel().fit(y, X, W, eigs, x_names=names)
+    assert model._x_names == names
+
+
+def test_fit_rejects_uppercase_X_names_with_clear_error():
+    """X_names (uppercase) must raise TypeError — not silently ignored."""
+    from src.spatial_models.sdm import SpatialDurbinModel
+    y, X, W, eigs, _ = make_sdm_dgp()
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        SpatialDurbinModel().fit(y, X, W, eigs, X_names=["intercept", "x1"])
+
+
+def test_fit_x_names_defaults_when_none():
+    """If x_names not supplied, defaults to ['x0', 'x1', ...]."""
+    from src.spatial_models.sdm import SpatialDurbinModel
+    y, X, W, eigs, _ = make_sdm_dgp()
+    model = SpatialDurbinModel().fit(y, X, W, eigs)
+    assert model._x_names is not None
+    assert len(model._x_names) == X.shape[1]
+    assert model._x_names[0] == "x0"
+
+
+def test_public_x_names_attrs_present():
+    """Public x_names_, wx_names_, all_names_ attributes must be set after fit."""
+    from src.spatial_models.sdm import SpatialDurbinModel
+    y, X, W, eigs, names = make_sdm_dgp()
+    model = SpatialDurbinModel().fit(y, X, W, eigs, x_names=names)
+    assert hasattr(model, "x_names_")
+    assert hasattr(model, "wx_names_")
+    assert hasattr(model, "all_names_")
+    assert model.x_names_ == names
+    assert "W_x1" in model.wx_names_
+
+
+def test_wx_names_exclude_intercept():
+    """WX column names must not include intercept lag."""
+    from src.spatial_models.sdm import SpatialDurbinModel
+    y, X, W, eigs, names = make_sdm_dgp()
+    model = SpatialDurbinModel().fit(y, X, W, eigs, x_names=names)
+    for n in model.wx_names_:
+        assert "intercept" not in n
+
+
+def test_summary_contains_supplied_names():
+    """summary() index must contain the supplied x_names."""
+    from src.spatial_models.sdm import SpatialDurbinModel
+    y, X, W, eigs, names = make_sdm_dgp()
+    model = SpatialDurbinModel().fit(y, X, W, eigs, x_names=names)
+    df = model.summary()
+    assert "intercept" in df.index
+    assert "x1" in df.index

@@ -27,6 +27,9 @@ class SpatialDurbinModel:
     se_: np.ndarray
     t_stats_: np.ndarray
     p_values_: np.ndarray
+    x_names_: list[str]
+    wx_names_: list[str]
+    all_names_: list[str]
 
     def fit(
         self,
@@ -36,6 +39,10 @@ class SpatialDurbinModel:
         eigenvalues: np.ndarray,
         x_names: list[str] | None = None,
     ) -> SpatialDurbinModel:
+        """Fit the Spatial Durbin Model via concentrated log-likelihood.
+
+        NOTE: The keyword argument is lowercase ``x_names``, not ``X_names``.
+        """
         n, k = X.shape
         self._n = n
         self._k = k
@@ -64,6 +71,9 @@ class SpatialDurbinModel:
         X_aug = np.hstack([X, WX])
         self._k_aug = X_aug.shape[1]
         self._wx_names = wx_names
+        self.x_names_ = self._x_names
+        self.wx_names_ = self._wx_names
+        self.all_names_ = self._x_names + self._wx_names
 
         def _conc_ll(rho: float) -> float:
             A = I_n - rho * W

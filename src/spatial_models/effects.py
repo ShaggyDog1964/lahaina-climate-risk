@@ -58,14 +58,15 @@ class LeSagePaceEffects:
             non_intercept_indices = list(range(1, k))
 
         rows = []
-        for idx, xi in enumerate(range(k)):
-            if idx >= k_wx and k_wx > 0:
+        n_processed = 0
+        for xi in range(k):
+            if n_processed >= k_wx and k_wx > 0:
                 break
             if xi == 0 and k > 1:
                 # skip intercept
                 continue
             b_r = float(beta[xi])
-            t_r = float(theta[idx]) if idx < k_wx else 0.0
+            t_r = float(theta[n_processed]) if n_processed < k_wx else 0.0
             direct_r = (b_r * trace_Ainv + t_r * trace_WAinv) / n
             total_r = (b_r + t_r) * trace_Ainv / n  # total effect per unit change
             indirect_r = total_r - direct_r
@@ -75,6 +76,7 @@ class LeSagePaceEffects:
                 "indirect": indirect_r,
                 "total": total_r,
             })
+            n_processed += 1
 
         if not rows:
             # Fall back: use first non-constant covariate

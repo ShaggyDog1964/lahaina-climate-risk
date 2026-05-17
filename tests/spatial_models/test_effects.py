@@ -56,3 +56,12 @@ def test_se_positive():
     assert (df["direct_se"] > 0).all()
     assert (df["indirect_se"] > 0).all()
     assert (df["total_se"] > 0).all()
+
+
+def test_effects_df_uses_x_names_from_sdm():
+    """effects_df_ variable column must use sdm._x_names (excluding intercept)."""
+    from src.spatial_models.effects import LeSagePaceEffects
+    model, W = make_sdm_model()
+    effects = LeSagePaceEffects().compute(model, W, n_simulations=50)
+    assert "x1" in effects.effects_df_["variable"].tolist()
+    assert "intercept" not in effects.effects_df_["variable"].tolist()
