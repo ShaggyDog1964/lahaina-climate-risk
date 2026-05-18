@@ -1,7 +1,7 @@
 # Contributing to lahaina-climate-risk
 
-Thank you for your interest in contributing. This project is academic research code — contributors are
-most likely quantitative economists or econometricians, not software engineers. The contribution
+Thank you for your interest in contributing. This project is academic research code so contributors are
+unlikely to be software engineers. The contribution
 process reflects that.
 
 ---
