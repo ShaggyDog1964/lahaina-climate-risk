@@ -2,12 +2,12 @@ cff-version: 1.2.0
 message: "If you use this code in your research, please cite it as below."
 type: software
 title: >-
-  Catastrophe Capitalization in Paradise: Econometric Pipeline for
+  Catastrophe Capitalization: Econometric Pipeline for
   Climate Tail-Risk Pricing Following the 2023 Lahaina Wildfire
 authors:
-  - family-names: "[Last Name]"
-    given-names: "[First Name]"
-    affiliation: "[Institution]"
+  - family-names: "Koike Smith"
+    given-names: "Noah"
+    affiliation: "Brandeis University"
 version: "1.0.0-phases-1-3"
 date-released: "2024-01-01"
 url: "https://github.com/[username]/lahaina-climate-risk"
