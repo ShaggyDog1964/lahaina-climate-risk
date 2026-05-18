@@ -1,4 +1,4 @@
-# Catastrophe Capitalization in Paradise
+# Lahaina Climate Risk
 ## Quantifying Climate Tail-Risk Repricing After the 2023 Lahaina Wildfire
 
 
