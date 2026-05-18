@@ -27,7 +27,7 @@ unavailable in mainland disaster studies.
 
 ---
 
-## Methods — Implemented From Scratch in Python
+## Methods
 
 Every estimator below is implemented from first principles. External libraries are used only for
 numerical validation.
@@ -97,7 +97,7 @@ make all-phases     # run all three in sequence (~3 hours)
 | Census ACS 5-year (API) | Demographics and income by ZIP | 1, 2 | Yes — requires key |
 | NIFC / WFIGS fire perimeters | 2023 Lahaina fire boundary | 1, 3 | Yes |
 | USFS WUI Shapefile | Wildland-urban interface classification | 1, 3 | No — see [data guide](docs/data_acquisition.md) |
-| FRED (API) | Macro controls: HPI, rates, unemployment | 1, 2 | Yes — requires key |
+| FRED (API) | Macro controls: HPI, rates, unemployment | 1, 2 | Yes |
 
 Free API keys: [FRED](https://fred.stlouisfed.org/docs/api/api_key.html) · [Census](https://api.census.gov/data/key_signup.html)
 
@@ -213,8 +213,8 @@ make docker-up      # start PostGIS + ClickHouse
   title       = {Catastrophe Capitalization in Paradise: A Quasi-Experimental
                  Analysis of Climate Tail-Risk Pricing Following the
                  2023 Lahaina Wildfire},
-  author      = {[Author Name]},
-  year        = {2024},
+  author      = {Noah Koike Smith},
+  year        = {2026},
   institution = {[Institution]},
   note        = {Preliminary draft. Code: https://github.com/[username]/lahaina-climate-risk}
 }
