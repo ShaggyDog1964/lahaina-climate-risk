@@ -16,7 +16,7 @@ On **August 8, 2023**, the Lahaina wildfire killed 101 people and destroyed over
 Maui — the deadliest U.S. wildfire in more than a century. This repository implements a three-phase
 econometric study of how that catastrophe was priced into Hawaiian property markets.
 
-**Central question:** Did the Lahaina fire trigger a *structural* repricing of climate tail risk — and
+**Central question:** Did the Lahaina fire trigger a *structural* repricing of climate tail risk and
 can that repricing be decomposed into direct damage, belief updating about disaster probabilities, and
 spatial spillover to unaffected neighboring properties?
 
