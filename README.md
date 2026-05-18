@@ -225,6 +225,12 @@ See [`CITATION.cff`](CITATION.cff) for machine-readable citation metadata.
 
 ---
 
+## Development Notes
+
+Claude (Anthropic) was used in the refinement of code and in analyzing data for this project.
+
+---
+
 ## License
 
 [MIT License](LICENSE). Data sourced from public U.S. government databases and Zillow Research.
