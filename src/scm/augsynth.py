@@ -15,6 +15,15 @@ class AugmentedSyntheticControl:
     """
 
     def __init__(self) -> None:
+        """Initialize an unfitted AugmentedSyntheticControl.
+
+        Attributes:
+            tau_ascm_: Bias-corrected treatment effect series (None until fit).
+            tau_raw_: Raw SCM gap Y1 - Y0@w_adh (None until fit).
+            bias_correction_: Ridge bias term m̂_1t - sum_j w_j m̂_jt (None until fit).
+            lambda_ridge_: Ridge regularization parameter used for bias correction.
+            _ridge: Last fitted sklearn Ridge estimator (reference only).
+        """
         self.tau_ascm_: np.ndarray | None = None
         self.tau_raw_: np.ndarray | None = None
         self.bias_correction_: np.ndarray | None = None

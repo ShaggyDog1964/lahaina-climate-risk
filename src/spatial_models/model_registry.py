@@ -9,12 +9,30 @@ class SpatialModelRegistry:
     """Register and compare spatial models by AIC/BIC/LL."""
 
     def __init__(self) -> None:
+        """Initialize an empty model registry.
+
+        Attributes:
+            _models: Internal dict mapping model name strings to fitted model objects.
+        """
         self._models: dict[str, object] = {}
 
     def register(self, name: str, model: object) -> None:
+        """Store a fitted spatial model under the given name.
+
+        Args:
+            name: Identifier string (e.g. "SAR", "SEM", "SDM").
+            model: Any fitted model object exposing rho_/lambda_, log_likelihood_,
+                aic_, bic_ attributes.
+        """
         self._models[name] = model
 
     def compare(self) -> pd.DataFrame:
+        """Build a comparison table of all registered models sorted by AIC.
+
+        Returns:
+            DataFrame with columns: model, spatial_param (rho or lambda),
+            log_likelihood, aic, bic. Sorted ascending by aic.
+        """
         rows = []
         for name, m in self._models.items():
             spatial_param = getattr(m, "rho_", getattr(m, "lambda_", float("nan")))

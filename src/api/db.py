@@ -18,12 +18,35 @@ class ClickHouseClient:
         port: int | None = None,
         database: str | None = None,
     ) -> None:
+        """Initialize the ClickHouse client configuration.
+
+        Connection is lazy — no socket is opened until the first query.
+
+        Args:
+            host: ClickHouse host; falls back to CH_HOST env var (empty = disabled).
+            port: ClickHouse native protocol port; falls back to CH_PORT env var (default 9000).
+            database: Database name; falls back to CH_DB env var (default "lahaina").
+
+        Attributes:
+            _host: Resolved host string.
+            _port: Resolved port integer.
+            _database: Resolved database name.
+            _client: Lazily initialized clickhouse_driver.Client instance (None until first use).
+        """
         self._host = host or os.environ.get("CH_HOST", "")
         self._port = int(port or os.environ.get("CH_PORT", "9000"))
         self._database = database or os.environ.get("CH_DB", "lahaina")
         self._client = None
 
     def _get_client(self):
+        """Return the clickhouse_driver Client, creating it on first call.
+
+        Returns:
+            Initialized clickhouse_driver.Client connected to self._host.
+
+        Raises:
+            RuntimeError: If CH_HOST is not configured.
+        """
         if not self._host:
             raise RuntimeError("CH_HOST not set; ClickHouse unavailable.")
         if self._client is None:
@@ -36,9 +59,22 @@ class ClickHouseClient:
         return self._client
 
     def connect(self) -> None:
+        """Eagerly initialize the ClickHouse connection.
+
+        Raises:
+            RuntimeError: If CH_HOST is not set.
+        """
         self._get_client()
 
     def create_tables(self) -> None:
+        """Create lisa_results, gwr_surfaces, and model_comparison tables if absent.
+
+        All tables use MergeTree with a run_date partition. Safe to call repeatedly
+        (CREATE TABLE IF NOT EXISTS semantics).
+
+        Raises:
+            RuntimeError: If CH_HOST is not configured.
+        """
         client = self._get_client()
         client.execute(
             """
@@ -86,21 +122,48 @@ class ClickHouseClient:
         )
 
     def insert_lisa(self, df: pd.DataFrame) -> None:
+        """Bulk-insert LISA results into the lisa_results table.
+
+        Args:
+            df: DataFrame whose columns match the lisa_results schema.
+        """
         client = self._get_client()
         rows = df.to_dict(orient="records")
         client.execute("INSERT INTO lisa_results VALUES", rows)
 
     def insert_gwr(self, df: pd.DataFrame) -> None:
+        """Bulk-insert GWR surface rows into the gwr_surfaces table.
+
+        Args:
+            df: DataFrame whose columns match the gwr_surfaces schema.
+        """
         client = self._get_client()
         rows = df.to_dict(orient="records")
         client.execute("INSERT INTO gwr_surfaces VALUES", rows)
 
     def insert_model_comparison(self, df: pd.DataFrame) -> None:
+        """Bulk-insert model comparison rows into the model_comparison table.
+
+        Args:
+            df: DataFrame whose columns match the model_comparison schema.
+        """
         client = self._get_client()
         rows = df.to_dict(orient="records")
         client.execute("INSERT INTO model_comparison VALUES", rows)
 
     def query(self, sql: str, parameters: dict | None = None) -> pd.DataFrame:
+        """Execute an arbitrary SQL query and return the results as a DataFrame.
+
+        Args:
+            sql: SQL string; use %(name)s placeholders for parameters.
+            parameters: Dict of bind parameters (optional).
+
+        Returns:
+            DataFrame with column names derived from the query result metadata.
+
+        Raises:
+            RuntimeError: If CH_HOST is not configured.
+        """
         client = self._get_client()
         result = client.execute(sql, params=parameters or {}, with_column_types=True)
         data, columns = result

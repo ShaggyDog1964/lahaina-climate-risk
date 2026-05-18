@@ -8,6 +8,7 @@ import pandas as pd
 
 
 def _stars(p: float) -> str:
+    """Return LaTeX significance star string for a given p-value."""
     if p < 0.01:
         return "***"
     if p < 0.05:
@@ -18,12 +19,27 @@ def _stars(p: float) -> str:
 
 
 def _fmt(v: float, decimals: int = 3) -> str:
+    """Format a float to a fixed-decimal string, returning '--' for NaN."""
     if np.isnan(v):
         return "--"
     return f"{v:.{decimals}f}"
 
 
 def sar_sem_sdm_latex(model_registry, lrt_sdm_sar: dict | None = None, wald_sdm_sem: dict | None = None) -> str:
+    """Generate a LaTeX table comparing SAR, SEM, and SDM estimates.
+
+    Writes the table to docs/tables/phase3_spatial_models.tex as a side-effect.
+
+    Args:
+        model_registry: Fitted SpatialModelRegistry with SAR, SEM, SDM registered.
+        lrt_sdm_sar: Optional dict from SpatialDurbinModel.test_sar_restriction()
+            containing keys lr_stat and p_value.
+        wald_sdm_sem: Optional dict from SpatialDurbinModel.test_sem_cf_restriction()
+            containing keys W_stat and p_value.
+
+    Returns:
+        LaTeX string for the complete table environment.
+    """
     df = model_registry.compare()
     models = {row["model"]: model_registry._models[row["model"]] for _, row in df.iterrows()}
 
@@ -88,6 +104,18 @@ def sar_sem_sdm_latex(model_registry, lrt_sdm_sar: dict | None = None, wald_sdm_
 
 
 def effects_latex(effects_df: pd.DataFrame) -> str:
+    """Generate a LaTeX table of LeSage-Pace direct/indirect/total effects.
+
+    Writes the table to docs/tables/phase3_effects.tex as a side-effect.
+
+    Args:
+        effects_df: DataFrame from LeSagePaceEffects.summary_table() with columns
+            variable, direct, indirect, total, direct_se, indirect_se, total_se,
+            direct_p, indirect_p, total_p.
+
+    Returns:
+        LaTeX string for the complete table environment.
+    """
     lines = [
         r"\begin{table}[htbp]",
         r"\centering",
@@ -121,6 +149,19 @@ def effects_latex(effects_df: pd.DataFrame) -> str:
 
 
 def moran_lisa_latex(global_morans_dict: dict, cluster_counts_dict: dict) -> str:
+    """Generate a two-panel LaTeX table for Global Moran's I and LISA cluster counts.
+
+    Writes the table to docs/tables/phase3_moran_lisa.tex as a side-effect.
+
+    Args:
+        global_morans_dict: Dict from GlobalMoransI.summary() with keys I, E_I,
+            Var_I, z_score, p_value_analytical, p_value_permutation.
+        cluster_counts_dict: Dict from LocalMoransI.cluster_counts() with keys
+            HH, LL, HL, LH, NS (and optionally total).
+
+    Returns:
+        LaTeX string for the complete table environment.
+    """
     moran_i = _fmt(global_morans_dict.get("I", float("nan")))
     EI = _fmt(global_morans_dict.get("E_I", float("nan")))
     z = _fmt(global_morans_dict.get("z_score", float("nan")))

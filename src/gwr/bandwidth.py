@@ -27,6 +27,26 @@ class BandwidthSelector:
         criterion: str = "AICc",
         checkpoint_path: str = "data/interim/spatial/bw_checkpoint.pkl",
     ) -> None:
+        """Initialize the bandwidth selector and precompute pairwise distances.
+
+        Args:
+            gdf: GeoDataFrame of observation locations (any CRS; reprojected to EPSG:32604).
+            y: Outcome vector of length n.
+            X: Design matrix of shape (n, k).
+            kernel: Kernel type — "bisquare" or "gaussian".
+            criterion: Information criterion to minimize — currently "AICc".
+            checkpoint_path: Path for pickle-based search state checkpointing.
+
+        Attributes:
+            _gdf: Reprojected GeoDataFrame (EPSG:32604, index reset).
+            _y: Outcome array.
+            _X: Design matrix.
+            _kernel: Kernel function name.
+            _criterion: Selection criterion name.
+            _checkpoint_path: Checkpoint file path string.
+            _evaluations: List of (bandwidth_km, criterion_value) pairs evaluated so far.
+            _dists: Precomputed pairwise Euclidean distance matrix (n x n, metres).
+        """
         self._gdf = gdf.to_crs("EPSG:32604").reset_index(drop=True)
         self._y = y
         self._X = X
@@ -74,12 +94,26 @@ class BandwidthSelector:
         return (lower + upper) / 2.0
 
     def checkpoint(self, state: dict, path: str | None = None) -> None:
+        """Pickle the current search state to disk.
+
+        Args:
+            state: Dict to serialize (typically contains lower, upper, evaluations).
+            path: Override checkpoint file path; uses self._checkpoint_path if None.
+        """
         p = Path(path or self._checkpoint_path)
         p.parent.mkdir(parents=True, exist_ok=True)
         with open(p, "wb") as fh:
             pickle.dump(state, fh)
 
     def resume_from_checkpoint(self, path: str | None = None) -> dict | None:
+        """Load a previously saved search state from disk.
+
+        Args:
+            path: Override checkpoint file path; uses self._checkpoint_path if None.
+
+        Returns:
+            Unpickled state dict if the checkpoint file exists, else None.
+        """
         p = Path(path or self._checkpoint_path)
         if p.exists():
             with open(p, "rb") as fh:
@@ -132,4 +166,15 @@ class BandwidthSelector:
         return optimal
 
     def fit(self, lower_km: float = 1.0, upper_km: float = 50.0) -> float:
+        """Select the optimal GWR bandwidth by minimizing AICc over [lower_km, upper_km].
+
+        Resumes from a checkpoint if one exists; persists the final state afterward.
+
+        Args:
+            lower_km: Lower bound of the search interval in kilometres.
+            upper_km: Upper bound of the search interval in kilometres.
+
+        Returns:
+            Optimal bandwidth in kilometres (midpoint of converged golden-section interval).
+        """
         return self.golden_section_search(lower_km, upper_km)

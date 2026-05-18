@@ -36,6 +36,15 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request, call_next):
+    """Log HTTP method and URL for every incoming request.
+
+    Args:
+        request: Starlette Request object.
+        call_next: ASGI middleware chain callable.
+
+    Returns:
+        The downstream Response object unchanged.
+    """
     logger.info("%s %s", request.method, request.url)
     response = await call_next(request)
     return response
@@ -50,6 +59,14 @@ def _get_db():
 
 
 def _read_parquet_fallback(path: str) -> pd.DataFrame | None:
+    """Read a parquet file and return a DataFrame, or None if the file is absent.
+
+    Args:
+        path: File path string relative to the project root.
+
+    Returns:
+        DataFrame if the file exists, else None.
+    """
     p = Path(path)
     if p.exists():
         return pd.read_parquet(p)
@@ -58,6 +75,11 @@ def _read_parquet_fallback(path: str) -> pd.DataFrame | None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """Return API liveness status.
+
+    Returns:
+        JSON object {"status": "ok"}.
+    """
     return {"status": "ok"}
 
 
@@ -66,6 +88,20 @@ def get_lisa_clusters(
     cluster_label: str | None = Query(default=None),
     limit: int = Query(default=100, le=5000),
 ) -> list[LISAResult]:
+    """Return LISA cluster observations, optionally filtered by label.
+
+    Tries ClickHouse first; falls back to parquet at results/esda/lisa_stats.parquet.
+
+    Args:
+        cluster_label: One of HH, LL, HL, LH, NS, or None to return all labels.
+        limit: Maximum number of records to return (capped at 5000).
+
+    Returns:
+        List of LISAResult objects.
+
+    Raises:
+        HTTPException 422: If cluster_label is not a valid label string.
+    """
     if cluster_label not in _VALID_CLUSTER_LABELS:
         raise HTTPException(status_code=422, detail="Invalid cluster_label")
 
@@ -109,6 +145,13 @@ def get_lisa_clusters(
 
 @app.get("/lisa/counts", response_model=ClusterCountResponse)
 def get_lisa_counts() -> ClusterCountResponse:
+    """Return aggregate counts of LISA cluster labels across all observations.
+
+    Tries ClickHouse first; falls back to parquet at results/esda/cluster_labels.parquet.
+
+    Returns:
+        ClusterCountResponse with counts for HH, LL, HL, LH, NS, and total.
+    """
     db = _get_db()
     if db:
         try:
@@ -138,6 +181,18 @@ def get_gwr_surface(
     variable: str = Query(default="beta_dist_to_fire"),
     limit: int = Query(default=200, le=5000),
 ) -> list[GWRSurface]:
+    """Return GWR coefficient surface records.
+
+    Tries ClickHouse first; falls back to parquet at results/gwr/gwr_surface.parquet.
+
+    Args:
+        variable: Name of the GWR coefficient variable to retrieve (informational;
+            both beta_dist_to_fire and beta_wui are always included in the response).
+        limit: Maximum number of records to return (capped at 5000).
+
+    Returns:
+        List of GWRSurface objects.
+    """
     db = _get_db()
     if db:
         try:
@@ -165,6 +220,13 @@ def get_gwr_surface(
 
 @app.get("/models/comparison", response_model=list[SpatialModelSummary])
 def get_model_comparison() -> list[SpatialModelSummary]:
+    """Return the spatial model comparison table (SAR vs SEM vs SDM).
+
+    Tries ClickHouse first; falls back to JSON at results/spatial/nesting_tests.json.
+
+    Returns:
+        List of SpatialModelSummary objects sorted by AIC ascending.
+    """
     db = _get_db()
     if db:
         try:
@@ -194,6 +256,12 @@ def get_model_comparison() -> list[SpatialModelSummary]:
 
 @app.get("/spatial/autocorrelation")
 def get_spatial_autocorrelation() -> dict[str, Any]:
+    """Return Global Moran's I summary from the precomputed JSON result.
+
+    Returns:
+        Dict with keys I, E_I, Var_I, z_score, p_value_analytical,
+        p_value_permutation if the file exists; otherwise a status message dict.
+    """
     p = Path("results/esda/global_morans.json")
     if p.exists():
         return json.loads(p.read_text())

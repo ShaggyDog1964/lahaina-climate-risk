@@ -66,6 +66,17 @@ class SpatialWeightsFactory:
         k: int = 8,
         bandwidth_km: float = 10.0,
     ) -> dict[str, lps_weights.W]:
+        """Build all three weight specifications and return them in a dict.
+
+        Args:
+            gdf: GeoDataFrame of observation locations.
+            k: Number of nearest neighbours for KNN weights.
+            bandwidth_km: IDW distance threshold in kilometres.
+
+        Returns:
+            Dict with keys "knn", "idw", "queen", each mapping to a
+            row-standardized libpysal W object.
+        """
         return {
             "knn": self.build_knn(gdf, k=k),
             "idw": self.build_idw(gdf, bandwidth_km=bandwidth_km),

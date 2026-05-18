@@ -33,6 +33,35 @@ class SpatialLagModel:
         eigenvalues: np.ndarray,
         x_names: list[str] | None = None,
     ) -> SpatialLagModel:
+        """Fit the SAR model y = rho*Wy + X*beta + eps via concentrated ML.
+
+        The concentrated log-likelihood over rho is:
+          L(rho) = log|I - rho*W| - (n/2) * log(sigma^2(rho))
+        where sigma^2(rho) = ||Ay - X*beta(rho)||^2 / n and A = I - rho*W.
+        beta(rho) is obtained by OLS on the filtered system Ay ~ X.
+
+        Standard errors are derived from the numerical Hessian of the full
+        log-likelihood evaluated at (rho_hat, beta_hat).
+
+        Args:
+            y: Outcome vector of length n. Must have nonzero variance.
+            X: Design matrix (n, k), including intercept if desired.
+            W: Row-standardized spatial weights matrix (n x n, csr_matrix).
+            eigenvalues: Real eigenvalues of W (length n); used to compute
+                log|I - rho*W| = sum(log|1 - rho*lambda_i|) and to bound rho.
+            x_names: Column labels for X; defaults to ["x0", "x1", ...].
+
+        Returns:
+            self, with rho_, beta_, sigma2_, log_likelihood_, aic_, bic_,
+            se_, t_stats_, p_values_ populated.
+
+        Raises:
+            ValueError: If y has no variation.
+
+        References:
+            Ord (1975), Estimation Methods for Models of Spatial Interaction,
+            JASA 70(349), eq. 4-6.
+        """
         n, k = X.shape
         if np.std(y) < 1e-12:
             raise ValueError("y has no variation; SAR model cannot be estimated on a constant outcome.")
@@ -116,15 +145,47 @@ class SpatialLagModel:
         return self
 
     def predict(self, X: np.ndarray, W: sp.csr_matrix, y: np.ndarray) -> np.ndarray:
+        """Compute fitted values solving (I - rho*W)*yhat = X*beta.
+
+        Args:
+            X: Design matrix (n, k).
+            W: Spatial weights matrix (n x n, csr_matrix).
+            y: Outcome vector (unused; retained for API symmetry).
+
+        Returns:
+            Predicted values of shape (n,) obtained via sparse direct solve.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         n = X.shape[0]
         A = sp.eye(n, format="csr") - self.rho_ * W
         rhs = X @ self.beta_
         return np.asarray(spla.spsolve(A, rhs)).ravel()
 
     def residuals(self, y: np.ndarray, X: np.ndarray, W: sp.csr_matrix) -> np.ndarray:
+        """Compute residuals y - yhat.
+
+        Args:
+            y: Observed outcome vector (n,).
+            X: Design matrix (n, k).
+            W: Spatial weights matrix (n x n, csr_matrix).
+
+        Returns:
+            Residual vector of shape (n,).
+        """
         return np.asarray(y - self.predict(X, W, y))
 
     def summary(self) -> pd.DataFrame:
+        """Return a DataFrame of parameter estimates and inference statistics.
+
+        Returns:
+            DataFrame indexed by ["rho"] + x_names with columns:
+            coef, se, t_stat, p_value, ci_lo, ci_hi.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         names = ["rho"] + self._x_names
         params = np.concatenate([[self.rho_], self.beta_])
         data = {
@@ -139,6 +200,16 @@ class SpatialLagModel:
 
 
 def _numerical_hessian(f, x0: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+    """Compute the numerical Hessian of f at x0 via central finite differences.
+
+    Args:
+        f: Scalar-valued function accepting a 1-D array of length n.
+        x0: Point at which to evaluate the Hessian (length n).
+        eps: Step size for finite-difference approximation.
+
+    Returns:
+        Symmetric (n, n) Hessian matrix.
+    """
     n = len(x0)
     H = np.zeros((n, n))
     f0 = f(x0)

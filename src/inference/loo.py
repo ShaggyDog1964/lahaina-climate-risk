@@ -11,6 +11,12 @@ class LeaveOneOutDiagnostic:
     """Leave-one-out robustness check for ADH SCM."""
 
     def __init__(self) -> None:
+        """Initialize an empty LeaveOneOutDiagnostic.
+
+        Attributes:
+            _result: Cached result dict from the most recent run() call (None until run).
+            _base_gap: Gap series for the full donor pool (None until run).
+        """
         self._result: dict | None = None
         self._base_gap: np.ndarray | None = None
 

@@ -31,6 +31,28 @@ class SpatialErrorModel:
         eigenvalues: np.ndarray,
         x_names: list[str] | None = None,
     ) -> SpatialErrorModel:
+        """Fit the SEM y = X*beta + (I - lambda*W)^{-1}*eps via concentrated ML.
+
+        The Kelejian-Prucha (1998) concentrated log-likelihood over lambda is:
+          L(lambda) = log|I - lambda*W| - (n/2) * log(sigma^2(lambda))
+        where the filtered system is B*y ~ B*X with B = I - lambda*W, and
+        beta(lambda) is obtained by GLS (OLS on filtered data).
+
+        Args:
+            y: Outcome vector of length n.
+            X: Design matrix (n, k), including intercept if desired.
+            W: Row-standardized spatial weights matrix (n x n, csr_matrix).
+            eigenvalues: Real eigenvalues of W; used for the log-determinant term
+                and to bound lambda within stationarity constraints.
+            x_names: Column labels for X; defaults to ["x0", "x1", ...].
+
+        Returns:
+            self, with lambda_, beta_, sigma2_, log_likelihood_, aic_, bic_,
+            se_, t_stats_, p_values_ populated.
+
+        References:
+            Anselin (1988), Spatial Econometrics: Methods and Models, Kluwer, ch. 6.
+        """
         n, k = X.shape
         self._n = n
         self._k = k
@@ -126,6 +148,15 @@ class SpatialErrorModel:
         return {"bp_stat": bp_stat, "df": df, "p_value": p_val}
 
     def summary(self) -> pd.DataFrame:
+        """Return a DataFrame of parameter estimates and inference statistics.
+
+        Returns:
+            DataFrame indexed by ["lambda"] + x_names with columns:
+            coef, se, t_stat, p_value, ci_lo, ci_hi.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         names = ["lambda"] + self._x_names
         params = np.concatenate([[self.lambda_], self.beta_])
         return pd.DataFrame({

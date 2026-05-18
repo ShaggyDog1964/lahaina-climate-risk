@@ -216,6 +216,7 @@ def plot_model_comparison(
 # Helpers
 # ------------------------------------------------------------------
 def _format_x_axis(ax: plt.Axes, time_periods: list[str]) -> None:
+    """Set evenly-spaced rotated tick labels on the x-axis for a time series plot."""
     n = len(time_periods)
     step = max(1, n // 8)
     ticks = list(range(0, n, step))
@@ -224,6 +225,7 @@ def _format_x_axis(ax: plt.Axes, time_periods: list[str]) -> None:
 
 
 def _save(fig: plt.Figure, output_path: str | Path) -> None:
+    """Save a matplotlib figure to PDF (and PNG if the path is a PDF), then close it."""
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out)

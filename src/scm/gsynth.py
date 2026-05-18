@@ -13,6 +13,16 @@ class GeneralizedSyntheticControl:
     """
 
     def __init__(self) -> None:
+        """Initialize an unfitted GeneralizedSyntheticControl.
+
+        Attributes:
+            F_: Pre-period factor matrix (T0 x r); None until fit.
+            F_full_: Full-period factor matrix (T x r) extending F_ to post period; None until fit.
+            lambda_1_: Treated unit factor loadings (r,); None until fit.
+            lambda_0_: Donor factor loadings (r x J); None until fit.
+            pre_rmspe_: Pre-period root mean squared prediction error; None until fit.
+            r_: Number of latent factors used in the fitted model; None until fit.
+        """
         self.F_: np.ndarray | None = None          # (T0, r) pre-period factors
         self.F_full_: np.ndarray | None = None      # (T_all, r)
         self.lambda_1_: np.ndarray | None = None    # (r,) treated loadings

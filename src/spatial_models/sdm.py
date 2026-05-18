@@ -185,6 +185,15 @@ class SpatialDurbinModel:
         return {"W_stat": W_stat, "df": k_wx, "p_value": p_value}
 
     def summary(self) -> pd.DataFrame:
+        """Return a DataFrame of parameter estimates and inference statistics.
+
+        Returns:
+            DataFrame indexed by ["rho"] + x_names + wx_names with columns:
+            coef, se, t_stat, p_value.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         names = ["rho"] + self._x_names + self._wx_names
         params = np.concatenate([[self.rho_], self.beta_, self.theta_])
         return pd.DataFrame({

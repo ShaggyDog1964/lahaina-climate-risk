@@ -102,6 +102,26 @@ class GeographicallyWeightedRegression:
         bandwidth_km: float,
         kernel: str = "bisquare",
     ) -> GeographicallyWeightedRegression:
+        """Fit GWR by computing local WLS at every observation location.
+
+        Projects gdf to EPSG:32604, builds the pairwise distance matrix, then
+        calls _fit_internal. After fitting, AICc is available via self.aicc_.
+
+        Args:
+            gdf: GeoDataFrame of observation locations (any CRS).
+            y: Outcome vector of length n.
+            X: Design matrix of shape (n, k), including intercept column if desired.
+            bandwidth_km: Kernel bandwidth in kilometres.
+            kernel: Kernel type — "bisquare" or "gaussian".
+
+        Returns:
+            self, with all local_params_, local_se_, local_t_, y_hat_,
+            residuals_, hat_diag_, sigma2_local_, effective_df_, aicc_ populated.
+
+        References:
+            Fotheringham, Brunsdon & Charlton (2002), Geographically Weighted
+            Regression, Wiley, ch. 2.
+        """
         projected = gdf.to_crs("EPSG:32604").reset_index(drop=True)
         coords = np.column_stack([projected.geometry.x, projected.geometry.y])
         from scipy.spatial.distance import cdist
@@ -114,6 +134,19 @@ class GeographicallyWeightedRegression:
         gdf: gpd.GeoDataFrame,
         x_names: list[str],
     ) -> gpd.GeoDataFrame:
+        """Attach local GWR coefficients and diagnostics to a GeoDataFrame.
+
+        Args:
+            gdf: GeoDataFrame whose row order matches the y array passed to fit().
+            x_names: Names for the k columns of X (e.g. ["intercept", "dist_to_fire"]).
+
+        Returns:
+            Copy of gdf with columns: beta_<name>, t_<name> for each x_name,
+            plus y_hat, residual, sigma2_local.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         result = gdf.copy().reset_index(drop=True)
         for j, name in enumerate(x_names):
             result[f"beta_{name}"] = self.local_params_[:, j]
@@ -124,5 +157,18 @@ class GeographicallyWeightedRegression:
         return result
 
     def coefficient_surface(self, var_name: str, x_names: list[str]) -> np.ndarray:
+        """Return the local coefficient vector for a single predictor.
+
+        Args:
+            var_name: Name of the predictor variable (must appear in x_names).
+            x_names: Ordered list of all predictor names used in fit().
+
+        Returns:
+            Array of shape (n,) containing the local beta for var_name at each location.
+
+        Raises:
+            ValueError: If var_name is not in x_names.
+            AttributeError: If fit() has not been called yet.
+        """
         idx = x_names.index(var_name)
         return self.local_params_[:, idx]

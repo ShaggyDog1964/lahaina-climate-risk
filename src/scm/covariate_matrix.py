@@ -34,6 +34,7 @@ def build_covariate_matrix(
     t_vals = np.arange(len(months), dtype=float).reshape(-1, 1)
 
     def _extract(zip_code: str) -> np.ndarray:
+        """Extract standardized covariate vector for a single zip code."""
         zdf = pre[pre["zip_code"] == zip_code].set_index("year_month")["log_zhvi"]
         zdf = zdf.reindex(months).ffill().bfill()
         y = np.asarray(zdf)
@@ -99,6 +100,7 @@ def build_outcome_matrices(
     donors = [z for z in panel["zip_code"].unique() if z != donor_pool.treated_zip]
 
     def _series(zip_code: str) -> np.ndarray:
+        """Return the pre-period log_zhvi series for a single zip code."""
         zdf = pre[pre["zip_code"] == zip_code].set_index("year_month")["log_zhvi"]
         return np.asarray(zdf.reindex(months).ffill().bfill())
 

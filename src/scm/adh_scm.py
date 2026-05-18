@@ -16,6 +16,18 @@ class ADHSyntheticControl:
     """
 
     def __init__(self) -> None:
+        """Initialize an unfitted ADHSyntheticControl.
+
+        Attributes:
+            w_: Donor weight vector (J,); None until fit.
+            V_: Diagonal importance-weight matrix (k x k); None until fit.
+            pre_rmspe_: Pre-period RMSPE of the synthetic control; None until fit.
+            post_rmspe_: Post-period RMSPE; None until computed.
+            _donor_names: Optional list of donor labels passed to fit().
+            converged_: True if the outer L-BFGS-B optimization converged.
+            _T0_: Number of pre-treatment time periods; None until fit.
+            rmspe_ratio_: post_rmspe_ / pre_rmspe_; None until post period is computed.
+        """
         self.w_: np.ndarray | None = None
         self.V_: np.ndarray | None = None
         self.pre_rmspe_: float | None = None

@@ -27,6 +27,21 @@ class DonorPool:
         treated_zip: str = "96761",
         pre_end: str = "2023-07",
     ) -> None:
+        """Initialize the DonorPool with a zip-level panel.
+
+        Args:
+            panel: DataFrame with at least columns [zip_code, year_month, log_zhvi].
+                zip_code will be coerced to zero-padded 5-character str if needed.
+            treated_zip: Zip code of the treated unit (Lahaina, default "96761").
+            pre_end: Last pre-treatment period as "YYYY-MM" (inclusive).
+
+        Attributes:
+            panel: Copy of the input panel with zip_code coerced to str.
+            treated_zip: Zero-padded treated zip code string.
+            pre_end: Pre-treatment end period string.
+            _donors: Cached list of donor zip codes after build(); None until then.
+            _donor_panel: Subset of panel containing donors + treated; None until build().
+        """
         self.panel = panel.copy()
         # Ensure zip_code is str — guard against int64 from CSV round-trip
         if (
@@ -120,6 +135,15 @@ class DonorPool:
     # ------------------------------------------------------------------
     @property
     def donor_panel(self) -> pd.DataFrame:
+        """Return the screened panel containing donors and the treated unit.
+
+        Returns:
+            DataFrame filtered to only the zips passing all screening criteria
+            plus the treated unit.
+
+        Raises:
+            RuntimeError: If build() has not been called yet.
+        """
         if self._donor_panel is None:
             raise RuntimeError("Call build() first.")
         return self._donor_panel
@@ -128,6 +152,11 @@ class DonorPool:
     # Optional PostGIS persistence
     # ------------------------------------------------------------------
     def _persist_to_postgres(self) -> None:
+        """Write the donor panel to PostgreSQL if POSTGRES_DSN is set.
+
+        Silently skips (with a warning log) if the connection fails or if
+        POSTGRES_DSN is not configured. Never raises.
+        """
         dsn = os.environ.get("POSTGRES_DSN")
         if not dsn or self._donor_panel is None:
             return

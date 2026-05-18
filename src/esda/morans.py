@@ -23,6 +23,25 @@ class GlobalMoransI:
         n_permutations: int = 999,
         seed: int = 42,
     ) -> GlobalMoransI:
+        """Compute Global Moran's I with analytical and permutation inference.
+
+        Implements the Cliff-Ord (1981) statistic:
+        I = (n / S0) * (z'Wz / z'z)
+        where z = (y - ybar) / std(y) and S0 = sum of all weights.
+
+        Args:
+            y: Outcome vector of length n.
+            W: Row-standardized spatial weights matrix (n x n, csr_matrix).
+            n_permutations: Number of random permutations for inference.
+            seed: Random seed for reproducibility.
+
+        Returns:
+            self, with fitted attributes I_, E_I_, Var_I_, z_score_,
+            p_value_analytical_, p_value_permutation_, I_perm_distribution_.
+
+        References:
+            Anselin (1995), eq. 1-4; Cliff & Ord (1981) ch. 1.
+        """
         n = len(y)
         z = (y - y.mean()) / y.std()
         Wz = W @ z
@@ -65,6 +84,15 @@ class GlobalMoransI:
         return self
 
     def summary(self) -> dict:
+        """Return a dict summary of all fitted statistics.
+
+        Returns:
+            Dict with keys: I, E_I, Var_I, z_score, p_value_analytical,
+            p_value_permutation.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         return {
             "I": self.I_,
             "E_I": self.E_I_,

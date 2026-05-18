@@ -136,7 +136,9 @@ def plot_spillover_decay(
     if valid.sum() >= 3 and np.all(x > 0):
         try:
             from scipy.optimize import curve_fit
-            def exp_decay(x_, a, b): return a * np.exp(-b * x_)
+            def exp_decay(x_, a, b):
+                """Exponential decay model a * exp(-b * x_) for curve fitting."""
+                return a * np.exp(-b * x_)
             popt, _ = curve_fit(exp_decay, x[valid], y[valid], p0=[-0.1, 0.1], maxfev=1000)
             x_fit = np.linspace(x.min(), x.max(), 200)
             ax.plot(x_fit, exp_decay(x_fit, *popt), "--", color="#d73027", label="Fitted decay")

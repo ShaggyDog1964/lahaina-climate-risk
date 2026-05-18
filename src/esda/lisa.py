@@ -21,6 +21,28 @@ class LocalMoransI:
         seed: int = 42,
         alpha: float = 0.05,
     ) -> LocalMoransI:
+        """Compute local Moran's I for each observation with permutation p-values.
+
+        For observation i: I_i = z_i * sum_j(w_ij * z_j)
+        where z = (y - ybar) / std(y).
+
+        Cluster labels follow the Anselin (1995) quadrant scheme:
+        HH (high-high), LL (low-low), HL (high-low), LH (low-high), NS (not significant).
+
+        Args:
+            y: Outcome vector of length n.
+            W: Row-standardized spatial weights matrix (n x n, csr_matrix).
+            n_permutations: Number of random permutations per observation.
+            seed: Random seed for reproducibility.
+            alpha: Significance threshold for cluster label assignment.
+
+        Returns:
+            self, with fitted attributes I_local_, p_values_, cluster_labels_.
+
+        References:
+            Anselin (1995), Local Indicators of Spatial Association — LISA,
+            Geographical Analysis 27(2), eq. 4-7.
+        """
         n = len(y)
         z = (y - y.mean()) / y.std()
         Wz = np.asarray(W @ z).ravel()
@@ -57,6 +79,15 @@ class LocalMoransI:
         return self
 
     def cluster_counts(self) -> dict[str, int]:
+        """Return counts of each LISA cluster label.
+
+        Returns:
+            Dict mapping each label (HH, LL, HL, LH, NS) to its observation count.
+            All five labels are always present (defaulting to 0).
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         unique, counts = np.unique(self.cluster_labels_, return_counts=True)
         result = {str(k): int(v) for k, v in zip(unique, counts, strict=False)}
         for label in ("HH", "LL", "HL", "LH", "NS"):
@@ -64,6 +95,17 @@ class LocalMoransI:
         return result
 
     def to_geodataframe(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+        """Attach LISA results as columns to a copy of the input GeoDataFrame.
+
+        Args:
+            gdf: GeoDataFrame whose row order matches the y array passed to fit().
+
+        Returns:
+            Copy of gdf with added columns: I_local, p_value, cluster_label.
+
+        Raises:
+            AttributeError: If fit() has not been called yet.
+        """
         result = gdf.copy()
         result["I_local"] = self.I_local_
         result["p_value"] = self.p_values_

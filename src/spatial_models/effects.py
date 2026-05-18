@@ -31,6 +31,32 @@ class LeSagePaceEffects:
         n_simulations: int = 1000,
         seed: int = 42,
     ) -> LeSagePaceEffects:
+        """Compute direct, indirect, and total effects for a fitted SDM.
+
+        Uses the eigenvalue trace approximation (LeSage & Pace 2009, eq. 2.28–2.31):
+          S_r = (I - rho*W)^{-1} * diag(beta_r + W*theta_r)
+          direct   = n^{-1} * tr(S_r)
+          total    = n^{-1} * 1'S_r*1
+          indirect = total - direct
+
+        Standard errors are obtained by drawing (rho, beta, theta) from a multivariate
+        normal approximating the joint posterior and repeating the trace computation.
+
+        Args:
+            sdm: Fitted SpatialDurbinModel (or any object satisfying SDMProtocol).
+            W: Row-standardized spatial weights matrix (n x n, csr_matrix).
+            n_simulations: Number of simulation draws for SE estimation.
+            seed: Random seed for reproducibility.
+
+        Returns:
+            self, with effects_df_ populated as a DataFrame with columns:
+            variable, direct, indirect, total, direct_se, indirect_se, total_se,
+            direct_p, indirect_p, total_p.
+
+        References:
+            LeSage & Pace (2009), Introduction to Spatial Econometrics, CRC Press,
+            ch. 2, eq. 2.28-2.31.
+        """
         n = W.shape[0]
         rho = sdm.rho_
         beta = sdm.beta_
@@ -154,10 +180,27 @@ class LeSagePaceEffects:
         return self
 
     def summary_table(self) -> pd.DataFrame:
+        """Return effects_df_ sorted by absolute total effect (descending).
+
+        Returns:
+            DataFrame with columns variable, direct, indirect, total and their
+            standard errors and p-values, sorted by abs(total) descending.
+
+        Raises:
+            AttributeError: If compute() has not been called yet.
+        """
         return self.effects_df_.sort_values("total", key=abs, ascending=False)
 
 
 def _compute_eigs_approx(W: sp.csr_matrix) -> np.ndarray:
+    """Approximate the real eigenvalues of W using ARPACK; falls back to dense.
+
+    Args:
+        W: Sparse spatial weights matrix (n x n, csr_matrix).
+
+    Returns:
+        Array of up to min(n-2, 50) real eigenvalues sorted by magnitude.
+    """
     n = W.shape[0]
     k = min(n - 2, 50)
     try:

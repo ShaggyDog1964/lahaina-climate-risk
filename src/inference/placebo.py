@@ -23,6 +23,22 @@ class InSpacePlacebo:
     """
 
     def __init__(self, scm_class, donor_pool, covariate_matrix_fn) -> None:
+        """Initialize the in-space placebo runner.
+
+        Args:
+            scm_class: SCM class with a .fit(X0, X1, Y0_pre, Y1_pre) interface
+                (e.g. ADHSyntheticControl).
+            donor_pool: Fitted DonorPool object providing the panel and metadata.
+            covariate_matrix_fn: Callable returning (X0, X1, covariate_names) for
+                a given DonorPool.
+
+        Attributes:
+            scm_class: The SCM class to instantiate for each placebo run.
+            donor_pool: The fitted DonorPool object.
+            covariate_matrix_fn: Covariate builder callable.
+            placebo_df: DataFrame of placebo results (None until run() is called).
+            _treated_pre_rmspe: Pre-RMSPE of the actual treated unit (None until set).
+        """
         self.scm_class = scm_class
         self.donor_pool = donor_pool
         self.covariate_matrix_fn = covariate_matrix_fn

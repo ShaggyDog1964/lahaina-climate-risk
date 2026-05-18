@@ -9,6 +9,12 @@ class ModelRegistry:
     """Dict-like container mapping model name → fitted SCM + metadata."""
 
     def __init__(self) -> None:
+        """Initialize an empty ModelRegistry.
+
+        Attributes:
+            _models: Internal dict mapping model name strings to
+                {"model": fitted_object, "meta": metadata_dict} entries.
+        """
         self._models: dict[str, dict] = {}
 
     def register(self, name: str, model: object, meta: dict) -> None:
@@ -44,7 +50,9 @@ class ModelRegistry:
         return pd.DataFrame(rows)
 
     def __len__(self) -> int:
+        """Return the number of registered models."""
         return len(self._models)
 
     def __contains__(self, name: str) -> bool:
+        """Return True if a model with the given name has been registered."""
         return name in self._models

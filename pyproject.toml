@@ -4,8 +4,35 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lahaina-climate-risk"
-version = "0.1.0"
-description = "Lahaina wildfire climate-risk: hedonic + DiD + SCM + spatial econometrics"
+version = "1.0.0"
+description = """\
+Econometric pipeline for climate tail-risk pricing following the 2023 Lahaina wildfire. \
+Implements staggered DiD (Callaway-Sant'Anna), synthetic control (ADH, GSynth, ASCM), \
+and spatial econometrics (SAR, SEM, SDM, GWR) from scratch in Python.\
+"""
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name = "[Author Name]", email = "[email]"}]
+keywords = [
+    "synthetic control",
+    "difference-in-differences",
+    "spatial econometrics",
+    "geographically weighted regression",
+    "climate risk",
+    "natural disaster",
+    "causal inference",
+    "Lahaina",
+    "wildfire",
+    "real estate",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 requires-python = ">=3.11"
 dependencies = [
     "geopandas>=0.14.0",
