@@ -134,7 +134,6 @@ lahaina-climate-risk/
 │   ├── api/                    # FastAPI spatial results service (port 8001)
 │   └── outputs/                # LaTeX table and figure generators
 ├── tests/                      # Unit, property (Hypothesis), integration, numerical validation
-├── paper/                      # NBER working paper LaTeX source
 ├── docs/                       # Data guide, methodology notes, replication guide, API reference
 ├── Snakefile                   # Full pipeline DAG (~200 rules, all three phases)
 ├── Makefile                    # Developer targets (test/lint/demo/phase1/phase2/phase3)
@@ -210,7 +209,7 @@ make docker-up      # start PostGIS + ClickHouse
 ## Citation
 
 ```bibtex
-@techreport{[author]2024lahaina,
+@techreport{KoikeSmith2024lahaina,
   title       = {Catastrophe Capitalization in Paradise: A Quasi-Experimental
                  Analysis of Climate Tail-Risk Pricing Following the
                  2023 Lahaina Wildfire},
