@@ -87,14 +87,14 @@ make all-phases     # run all three in sequence (~3 hours)
 
 ---
 
-## Data Sources — All Public, No Paywall
+## Data Sources
 
 | Source | What it provides | Phase | Auto-downloaded |
 |--------|-----------------|-------|-----------------|
 | Maui County Assessment Roll | Parcel-level transactions, 2018–2024 | 1 | No — see [data guide](docs/data_acquisition.md) |
 | Zillow ZHVI (bulk CSV) | Monthly ZIP-level house price index | 2 | Yes |
 | FHFA House Price Index by ZIP | Quarterly ZIP HPI, 1996–present | 2 | Yes |
-| Census ACS 5-year (API) | Demographics and income by ZIP | 1, 2 | Yes — requires key |
+| Census ACS 5-year (API) | Demographics and income by ZIP | 1, 2 | Yes |
 | NIFC / WFIGS fire perimeters | 2023 Lahaina fire boundary | 1, 3 | Yes |
 | USFS WUI Shapefile | Wildland-urban interface classification | 1, 3 | No — see [data guide](docs/data_acquisition.md) |
 | FRED (API) | Macro controls: HPI, rates, unemployment | 1, 2 | Yes |
