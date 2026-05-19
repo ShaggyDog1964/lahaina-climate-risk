@@ -210,7 +210,7 @@ make docker-up      # start PostGIS + ClickHouse
 
 ```bibtex
 @techreport{KoikeSmith2024lahaina,
-  title       = {Catastrophe Capitalization in Paradise: A Quasi-Experimental
+  title       = {Catastrophe Capitalization: A Quasi-Experimental
                  Analysis of Climate Tail-Risk Pricing Following the
                  2023 Lahaina Wildfire},
   author      = {Noah Koike Smith},
