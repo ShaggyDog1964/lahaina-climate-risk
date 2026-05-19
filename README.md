@@ -215,7 +215,7 @@ make docker-up      # start PostGIS + ClickHouse
                  2023 Lahaina Wildfire},
   author      = {Noah Koike Smith},
   year        = {2026},
-  institution = {[Institution]},
+  institution = {Brandeis University},
   note        = {Preliminary draft. Code: https://github.com/[username]/lahaina-climate-risk}
 }
 ```
